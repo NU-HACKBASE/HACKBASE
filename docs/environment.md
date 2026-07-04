@@ -25,6 +25,7 @@ cp .env.example .env
 - frontend で使う環境変数は `VITE_` prefix が必要
 - backend は `backend/src/config/env.ts` で読み込む
 - frontend は `frontend/src/lib/config.js` で読み込む
+- Docker Compose の backend では `postgres` と `redis` を service name として使う
 
 ## 本番環境で変えるもの
 

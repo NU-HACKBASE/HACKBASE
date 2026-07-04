@@ -1,4 +1,4 @@
-.PHONY: setup install dev dev-infra dev-backend dev-frontend build lint openapi-check down logs clean
+.PHONY: setup install dev dev-infra dev-backend dev-frontend docker-up docker-build build lint openapi-check down logs clean
 
 setup: install
 	cp -n .env.example .env || true
@@ -20,6 +20,12 @@ dev-backend:
 
 dev-frontend:
 	npm --prefix frontend run dev
+
+docker-up:
+	docker compose up -d --build
+
+docker-build:
+	docker compose build
 
 build:
 	npm --prefix backend run build

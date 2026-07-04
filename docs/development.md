@@ -28,6 +28,20 @@ make dev-backend
 make dev-frontend
 ```
 
+## Docker で全体起動
+
+frontend、backend、PostgreSQL、Redis をすべて Docker で起動します。
+
+```bash
+make docker-up
+```
+
+直接 Docker Compose を使う場合:
+
+```bash
+docker compose up -d --build
+```
+
 ## URL
 
 | Target | URL |
@@ -44,6 +58,7 @@ make dev-frontend
 make lint
 make build
 make openapi-check
+make docker-up
 make down
 ```
 

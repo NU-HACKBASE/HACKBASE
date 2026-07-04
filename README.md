@@ -53,6 +53,12 @@ make dev-backend
 make dev-frontend
 ```
 
+Docker only:
+
+```bash
+make docker-up
+```
+
 Open:
 
 - Frontend: http://localhost:5173
@@ -67,6 +73,8 @@ make install        # install frontend and backend dependencies
 make dev-infra     # start PostgreSQL and Redis
 make dev-backend   # start Hono backend
 make dev-frontend  # start Vite frontend
+make docker-up     # build and start frontend, backend, PostgreSQL, Redis
+make docker-build  # build Docker images
 make build         # build backend and frontend
 make lint          # backend typecheck and frontend eslint
 make openapi-check # validate required OpenAPI shape
