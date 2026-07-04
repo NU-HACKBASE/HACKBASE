@@ -20,6 +20,7 @@ WORKDIR /app
 COPY --from=deps /app/backend/node_modules ./backend/node_modules
 COPY --from=build /app/backend/package*.json ./backend/
 COPY --from=build /app/backend/dist ./backend/dist
+COPY --from=build /app/backend/src/scripts ./backend/src/scripts
 COPY --from=build /app/openapi ./openapi
 
 WORKDIR /app/backend

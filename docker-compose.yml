@@ -9,6 +9,8 @@ services:
       BACKEND_HOST: 0.0.0.0
       BACKEND_PORT: 8787
       CORS_ORIGIN: http://localhost:5173
+      AUTH_SECRET: local-development-secret
+      ADMIN_PASSWORD: admin
       DATABASE_URL: postgres://hackbase:hackbase@postgres:5432/hackbase
       REDIS_URL: redis://redis:6379
     ports:

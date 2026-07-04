@@ -11,6 +11,7 @@ React/Vite frontend and Hono/TypeScript backend foundation for hackathon-speed w
 - [WebSocket Guide](./docs/websocket.md)
 - [Environment Variables](./docs/environment.md)
 - [Agent Guide](./docs/agent-guide.md)
+- [Next Steps](./docs/next-steps.md)
 
 AI coding agents should also read [AGENTS.md](./AGENTS.md).
 
@@ -77,6 +78,7 @@ make docker-up     # build and start frontend, backend, PostgreSQL, Redis
 make docker-build  # build Docker images
 make build         # build backend and frontend
 make lint          # backend typecheck and frontend eslint
+make test          # run backend unit tests
 make openapi-check # validate required OpenAPI shape
 make down          # stop containers
 make clean         # stop containers and remove volumes
@@ -107,7 +109,7 @@ Compared with a single full-stack framework, this setup has a little more wiring
 
 - OpenAPI and implementation are not yet automatically diffed
 - No migration tool is included yet
-- No test framework is included yet
+- Backend service unit tests are available with Node's built-in test runner
 - Local Docker Compose runs infrastructure only, not the app processes
 
 ## Library Choices
@@ -126,5 +128,5 @@ Compared with a single full-stack framework, this setup has a little more wiring
 
 - Add database migrations when the first table is introduced
 - Add generated API client or contract tests once endpoints grow
-- Add Vitest for service-level tests
+- Add repository integration tests with PostgreSQL
 - Add CI for `make lint`, `make build`, and `make openapi-check`

@@ -14,6 +14,8 @@ cp .env.example .env
 | `BACKEND_HOST` | Backend | `0.0.0.0` | Backend bind host |
 | `BACKEND_PORT` | Backend | `8787` | Backend port |
 | `CORS_ORIGIN` | Backend | `http://localhost:5173` | Allowed frontend origin |
+| `AUTH_SECRET` | Backend | `change-me-in-production` | HMAC secret for local auth tokens |
+| `ADMIN_PASSWORD` | Backend | `admin` | Local admin login password |
 | `DATABASE_URL` | Backend | `postgres://hackbase:hackbase@localhost:5432/hackbase` | PostgreSQL connection URL |
 | `REDIS_URL` | Backend | `redis://localhost:6379` | Redis connection URL |
 | `VITE_API_BASE_URL` | Frontend | `http://localhost:8787` | REST API base URL |
@@ -33,6 +35,8 @@ cp .env.example .env
 - `CORS_ORIGIN`
 - `DATABASE_URL`
 - `REDIS_URL`
+- `AUTH_SECRET`
+- `ADMIN_PASSWORD`
 - `VITE_API_BASE_URL`
 - `VITE_WS_URL`
 

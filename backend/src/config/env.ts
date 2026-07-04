@@ -9,6 +9,8 @@ export type AppEnv = {
   corsOrigin: string
   databaseUrl: string
   redisUrl: string
+  authSecret: string
+  adminPassword: string
 }
 
 const readEnv = (key: string, fallback?: string): string => {
@@ -31,4 +33,6 @@ export const env: AppEnv = {
     'postgres://hackbase:hackbase@localhost:5432/hackbase',
   ),
   redisUrl: readEnv('REDIS_URL', 'redis://localhost:6379'),
+  authSecret: readEnv('AUTH_SECRET', 'local-development-secret'),
+  adminPassword: readEnv('ADMIN_PASSWORD', 'admin'),
 }
