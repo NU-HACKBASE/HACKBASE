@@ -14,8 +14,14 @@ export const getBearerToken = (c: Context): string => {
 }
 
 export const readJson = async <T>(c: Context): Promise<T> => {
+  const text = await c.req.text()
+
+  if (text.trim() === '') {
+    return {} as T
+  }
+
   try {
-    return (await c.req.json()) as T
+    return JSON.parse(text) as T
   } catch {
     throw new ApiError(400, 'INVALID_JSON', 'Request body must be valid JSON')
   }
