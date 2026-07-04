@@ -1,0 +1,69 @@
+openapi: 3.1.0
+info:
+  title: HACKBASE API
+  version: 0.1.0
+  description: OpenAPI first contract for the HACKBASE backend.
+servers:
+  - url: http://localhost:8787
+    description: Local backend
+tags:
+  - name: System
+    description: Operational endpoints
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      tags:
+        - System
+      summary: Check API, database, and cache health
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: One or more dependencies are unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - services
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+            - degraded
+        timestamp:
+          type: string
+          format: date-time
+        services:
+          type: object
+          required:
+            - api
+            - database
+            - cache
+          properties:
+            api:
+              type: string
+              enum:
+                - ok
+            database:
+              type: string
+              enum:
+                - ok
+                - error
+            cache:
+              type: string
+              enum:
+                - ok
+                - error

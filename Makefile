@@ -1,0 +1,43 @@
+.PHONY: setup install dev dev-infra dev-backend dev-frontend build lint openapi-check down logs clean
+
+setup: install
+	cp -n .env.example .env || true
+
+install:
+	npm --prefix backend install
+	npm --prefix frontend install
+
+dev: dev-infra
+	@echo "Run these in separate terminals:"
+	@echo "  make dev-backend"
+	@echo "  make dev-frontend"
+
+dev-infra:
+	docker compose up -d postgres redis
+
+dev-backend:
+	npm --prefix backend run dev
+
+dev-frontend:
+	npm --prefix frontend run dev
+
+build:
+	npm --prefix backend run build
+	npm --prefix frontend run build
+
+lint:
+	npm --prefix backend run lint
+	npm --prefix frontend run lint
+
+openapi-check:
+	npm --prefix backend run openapi:check
+
+down:
+	docker compose down
+
+logs:
+	docker compose logs -f
+
+clean:
+	docker compose down -v
+	rm -rf backend/dist frontend/dist
