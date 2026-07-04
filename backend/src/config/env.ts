@@ -24,7 +24,7 @@ const readEnv = (key: string, fallback?: string): string => {
 export const env: AppEnv = {
   appEnv: readEnv('APP_ENV', 'development'),
   host: readEnv('BACKEND_HOST', '0.0.0.0'),
-  port: Number(readEnv('BACKEND_PORT', '8787')),
+  port: Number(process.env.PORT ?? readEnv('BACKEND_PORT', '8787')),
   corsOrigin: readEnv('CORS_ORIGIN', 'http://localhost:5173'),
   databaseUrl: readEnv(
     'DATABASE_URL',
