@@ -1,5 +1,7 @@
 import { apiRequest } from './apiClient'
 
+export { fetchEventRooms } from './roomApi'
+
 export async function fetchEvents(params = {}, options = {}) {
   const data = await apiRequest('/events', {
     query: params,
@@ -15,14 +17,6 @@ export async function fetchEvent(eventId, options = {}) {
   })
 
   return normalizeEvent(data)
-}
-
-export async function fetchEventRooms(eventId, options = {}) {
-  const data = await apiRequest(`/events/${eventId}/rooms`, {
-    signal: options.signal,
-  })
-
-  return normalizeRooms(data)
 }
 
 function normalizeEvents(data) {
@@ -50,31 +44,6 @@ function normalizeEvent(data) {
     heat: source.heat ?? source.excitementLevel ?? source.popularity ?? 0,
     participants: source.participants ?? source.participantCount ?? 0,
     startsAt: source.startsAt ?? source.startTime ?? null,
-    raw: source,
-  }
-}
-
-function normalizeRooms(data) {
-  const items = data?.rooms ?? data?.items ?? data?.data ?? data
-
-  if (!Array.isArray(items)) {
-    return []
-  }
-
-  return items.map(normalizeRoom)
-}
-
-function normalizeRoom(data) {
-  const source = data?.room ?? data
-  const id = source.roomId ?? source.id
-
-  return {
-    id,
-    roomId: id,
-    title: source.roomTitle ?? source.title ?? '',
-    heat: source.roomHeat ?? source.heat ?? source.excitementLevel ?? 0,
-    participants: source.participants ?? source.participantCount ?? 0,
-    summary: source.roomSummary ?? source.summary ?? '',
     raw: source,
   }
 }
