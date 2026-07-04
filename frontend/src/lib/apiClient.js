@@ -19,6 +19,7 @@ export async function apiRequest(path, options = {}) {
     body,
     headers,
     method = body === undefined ? 'GET' : 'POST',
+    query,
     signal,
   } = options
   const requestHeaders = createHeaders(headers)
@@ -28,7 +29,7 @@ export async function apiRequest(path, options = {}) {
     applyAuthHeaders(requestHeaders)
   }
 
-  const response = await fetch(createUrl(path, baseUrl), {
+  const response = await fetch(createUrl(path, baseUrl, query), {
     body: requestBody,
     headers: requestHeaders,
     method,
@@ -96,15 +97,39 @@ function applyAuthHeaders(headers) {
   }
 }
 
-function createUrl(path, baseUrl) {
+function createUrl(path, baseUrl, query) {
   if (/^https?:\/\//.test(path)) {
-    return path
+    return appendQuery(path, query)
   }
 
   const normalizedBaseUrl = baseUrl.replace(/\/$/, '')
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
 
-  return `${normalizedBaseUrl}${normalizedPath}`
+  return appendQuery(`${normalizedBaseUrl}${normalizedPath}`, query)
+}
+
+function appendQuery(url, query) {
+  if (!query) {
+    return url
+  }
+
+  const searchParams = new URLSearchParams()
+
+  Object.entries(query).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') {
+      return
+    }
+
+    searchParams.set(key, String(value))
+  })
+
+  const queryString = searchParams.toString()
+
+  if (!queryString) {
+    return url
+  }
+
+  return `${url}${url.includes('?') ? '&' : '?'}${queryString}`
 }
 
 async function parseResponse(response) {
