@@ -3,8 +3,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { fetchEvent, fetchEventRooms, joinEvent } from '../lib/eventApi'
 
-const joinedEventIdsStorageKey = 'hackbase:joinedEventIds'
-
 export function EventDetailPage() {
   const { eventId } = useParams()
   const navigate = useNavigate()
@@ -12,9 +10,7 @@ export function EventDetailPage() {
   const [rooms, setRooms] = useState([])
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
-  const [joinStatus, setJoinStatus] = useState(() =>
-    hasJoinedEvent(eventId) ? 'joined' : 'idle',
-  )
+  const [joinStatus, setJoinStatus] = useState('idle')
   const [joinError, setJoinError] = useState('')
 
   useEffect(() => {
@@ -32,7 +28,8 @@ export function EventDetailPage() {
 
         setEvent(nextEvent)
         setRooms(nextRooms)
-        setJoinStatus(hasJoinedEvent(eventId) ? 'joined' : 'idle')
+        setJoinStatus('idle')
+        setJoinError('')
         setStatus('ready')
       } catch (loadError) {
         if (controller.signal.aborted) {
@@ -52,31 +49,23 @@ export function EventDetailPage() {
   }, [eventId])
 
   const handleJoin = async () => {
-    const alreadyJoined = hasJoinedEvent(eventId)
-
-    if (alreadyJoined) {
-      setJoinStatus('joined')
-      return
-    }
-
     setJoinStatus('joining')
     setJoinError('')
 
     try {
       const result = await joinEvent(eventId)
 
-      rememberJoinedEvent(eventId)
       setJoinStatus('joined')
 
-      if (result.event?.id || event) {
-        const responseParticipants = result.event?.participants ?? 0
-        const currentParticipants = event?.participants ?? 0
-        const nextParticipants = Math.max(responseParticipants, currentParticipants + 1)
+      if (result.event?.id) {
+        setEvent(result.event)
+      }
 
-        setEvent({
-          ...(result.event ?? event),
-          participants: nextParticipants,
-        })
+      try {
+        const nextEvent = await fetchEvent(eventId)
+        setEvent(nextEvent)
+      } catch {
+        // The join succeeded; keep the joined UI even if the follow-up refresh fails.
       }
 
       if (rooms[0]) {
@@ -176,35 +165,6 @@ export function EventDetailPage() {
       </section>
     </div>
   )
-}
-
-function hasJoinedEvent(eventId) {
-  if (!eventId) {
-    return false
-  }
-
-  return readJoinedEventIds().includes(eventId)
-}
-
-function rememberJoinedEvent(eventId) {
-  if (!eventId) {
-    return
-  }
-
-  const eventIds = new Set(readJoinedEventIds())
-  eventIds.add(eventId)
-  localStorage.setItem(joinedEventIdsStorageKey, JSON.stringify([...eventIds]))
-}
-
-function readJoinedEventIds() {
-  try {
-    const value = localStorage.getItem(joinedEventIdsStorageKey)
-    const parsedValue = JSON.parse(value ?? '[]')
-
-    return Array.isArray(parsedValue) ? parsedValue : []
-  } catch {
-    return []
-  }
 }
 
 function getJoinButtonLabel(joinStatus) {
