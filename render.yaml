@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: hackbase-backend
+    runtime: node
+    plan: free
+    buildCommand: npm --prefix backend ci && npm --prefix backend run build
+    startCommand: npm --prefix backend run start
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: BACKEND_HOST
+        value: 0.0.0.0
+      - key: CORS_ORIGIN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
