@@ -151,9 +151,11 @@ test('RoomService analyzes a room for an admin', async () => {
         roomId: 'room-1',
         eventId: 'event-1',
         userId: 'user-1',
+        userName: 'guest',
         body: 'Hello',
         likedCount: 2,
         createdAt: '2026-07-04T00:00:00.000Z',
+        updatedAt: null,
       },
     ],
   })
