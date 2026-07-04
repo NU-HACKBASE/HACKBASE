@@ -9,10 +9,16 @@ export type AppEnv = {
   corsOrigin: string
   databaseUrl: string
   redisUrl: string
+  authSecret: string
+  adminPassword: string
 }
 
-const readEnv = (key: string, fallback?: string): string => {
-  const value = process.env[key] ?? fallback
+export const readEnv = (
+  key: string,
+  fallback?: string,
+  processEnv: NodeJS.ProcessEnv = process.env,
+): string => {
+  const value = processEnv[key] ?? fallback
 
   if (!value) {
     throw new Error(`Missing required environment variable: ${key}`)
@@ -21,8 +27,10 @@ const readEnv = (key: string, fallback?: string): string => {
   return value
 }
 
+const appEnv = readEnv('APP_ENV', 'development')
+
 export const env: AppEnv = {
-  appEnv: readEnv('APP_ENV', 'development'),
+  appEnv,
   host: readEnv('BACKEND_HOST', '0.0.0.0'),
   port: Number(readEnv('BACKEND_PORT', '8787')),
   corsOrigin: readEnv('CORS_ORIGIN', 'http://localhost:5173'),
@@ -31,4 +39,6 @@ export const env: AppEnv = {
     'postgres://hackbase:hackbase@localhost:5432/hackbase',
   ),
   redisUrl: readEnv('REDIS_URL', 'redis://localhost:6379'),
+  authSecret: readEnv('AUTH_SECRET'),
+  adminPassword: readEnv('ADMIN_PASSWORD'),
 }

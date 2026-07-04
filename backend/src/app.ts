@@ -10,10 +10,25 @@ import { parse } from 'yaml'
 import { env } from './config/env.js'
 import { pool } from './db/postgres.js'
 import { redis } from './db/redis.js'
+import { ChatHandler } from './handlers/chat.handler.js'
+import { EventHandler } from './handlers/event.handler.js'
 import { HealthHandler } from './handlers/health.handler.js'
+import { RoomHandler } from './handlers/room.handler.js'
+import { UserHandler } from './handlers/user.handler.js'
+import { ChatRepository } from './repositories/chat.repository.js'
+import { EventRepository } from './repositories/event.repository.js'
 import { HealthRepository } from './repositories/health.repository.js'
+import { RoomRepository } from './repositories/room.repository.js'
+import { UserRepository } from './repositories/user.repository.js'
+import { createApiRoute } from './routes/api.route.js'
 import { createHealthRoute } from './routes/health.route.js'
+import { AuthService } from './services/auth.service.js'
+import { ChatService } from './services/chat.service.js'
+import { EventService } from './services/event.service.js'
 import { HealthService } from './services/health.service.js'
+import { RoomService } from './services/room.service.js'
+import { UserService } from './services/user.service.js'
+import { ApiError, errorBody } from './utils/api-error.js'
 
 const openApiPath = fileURLToPath(new URL('../../openapi/openapi.yaml', import.meta.url))
 
@@ -32,8 +47,35 @@ export const createApp = () => {
   const healthRepository = new HealthRepository(pool, redis)
   const healthService = new HealthService(healthRepository)
   const healthHandler = new HealthHandler(healthService)
+  const authService = new AuthService()
+  const userRepository = new UserRepository(pool)
+  const eventRepository = new EventRepository(pool)
+  const roomRepository = new RoomRepository(pool)
+  const chatRepository = new ChatRepository(pool)
+  const userService = new UserService(userRepository, authService)
+  const eventService = new EventService(eventRepository, authService)
+  const roomService = new RoomService(
+    eventRepository,
+    roomRepository,
+    chatRepository,
+    authService,
+  )
+  const chatService = new ChatService(roomRepository, chatRepository)
+  const userHandler = new UserHandler(userService, authService)
+  const eventHandler = new EventHandler(eventService, authService)
+  const roomHandler = new RoomHandler(roomService, authService)
+  const chatHandler = new ChatHandler(chatService, authService)
 
   app.route('/', createHealthRoute(healthHandler))
+  app.route(
+    '/api/v1',
+    createApiRoute({
+      userHandler,
+      eventHandler,
+      roomHandler,
+      chatHandler,
+    }),
+  )
 
   app.get('/openapi.json', (c) => c.json(openApiDocument))
   app.get('/docs', swaggerUI({ url: '/openapi.json' }))
@@ -48,6 +90,10 @@ export const createApp = () => {
   })
 
   app.onError((error, c) => {
+    if (error instanceof ApiError) {
+      return c.json(errorBody(error), { status: error.status as 400 })
+    }
+
     console.error(error)
 
     return c.json(
