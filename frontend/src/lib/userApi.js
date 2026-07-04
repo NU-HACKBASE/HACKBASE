@@ -1,25 +1,21 @@
-import { apiV1BaseUrl } from './config'
-
-const userEndpoint = `${apiV1BaseUrl}/users`
+import { apiRequest } from './apiClient'
 
 export async function createAnonymousUser({ userName }) {
-  const response = await fetch(userEndpoint, {
+  const data = await apiRequest('/users', {
+    auth: false,
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ userName }),
+    body: { userName },
   })
 
-  return parseUserResponse(response)
+  return normalizeUserPayload(data)
 }
 
 export async function fetchCurrentUser({ userId, token }) {
-  const response = await fetch(`${userEndpoint}/me`, {
+  const data = await apiRequest('/users/me', {
     headers: createAuthHeaders({ userId, token }),
   })
 
-  return parseUserResponse(response)
+  return normalizeUserPayload(data)
 }
 
 function createAuthHeaders({ userId, token }) {
@@ -35,17 +31,6 @@ function createAuthHeaders({ userId, token }) {
   }
 
   return headers
-}
-
-async function parseUserResponse(response) {
-  const data = await response.json().catch(() => null)
-
-  if (!response.ok) {
-    const message = data?.error?.message ?? data?.message ?? 'ユーザー情報の取得に失敗しました'
-    throw new Error(message)
-  }
-
-  return normalizeUserPayload(data)
 }
 
 function normalizeUserPayload(data) {
