@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
-import { createRoomChat, fetchRoom, likeChat } from '../lib/roomApi'
+import { useCurrentUser } from '../hooks/useCurrentUser'
+import {
+  createRoomChat,
+  deleteChat,
+  likeChat,
+  updateChat,
+} from '../lib/chatApi'
+import { fetchRoom } from '../lib/roomApi'
 
 export function RoomChatPage() {
   const { eventId, roomId } = useParams()
+  const { userId } = useCurrentUser()
   const [room, setRoom] = useState(null)
   const [chats, setChats] = useState([])
   const [message, setMessage] = useState('')
@@ -13,6 +21,10 @@ export function RoomChatPage() {
   const [submitStatus, setSubmitStatus] = useState('idle')
   const [submitError, setSubmitError] = useState('')
   const [likingChatId, setLikingChatId] = useState(null)
+  const [editingChatId, setEditingChatId] = useState(null)
+  const [editingBody, setEditingBody] = useState('')
+  const [savingChatId, setSavingChatId] = useState(null)
+  const [deletingChatId, setDeletingChatId] = useState(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -70,6 +82,7 @@ export function RoomChatPage() {
 
   const handleLike = async (chatId) => {
     setLikingChatId(chatId)
+    setSubmitError('')
 
     try {
       const likedChat = await likeChat(chatId)
@@ -81,6 +94,56 @@ export function RoomChatPage() {
       setSubmitError(likeError.message)
     } finally {
       setLikingChatId(null)
+    }
+  }
+
+  const startEditing = (chat) => {
+    setEditingChatId(chat.id)
+    setEditingBody(chat.body)
+    setSubmitError('')
+  }
+
+  const cancelEditing = () => {
+    setEditingChatId(null)
+    setEditingBody('')
+  }
+
+  const handleUpdate = async (chatId) => {
+    const trimmedBody = editingBody.trim()
+
+    if (!trimmedBody) {
+      setSubmitError('メッセージを入力してください')
+      return
+    }
+
+    setSavingChatId(chatId)
+    setSubmitError('')
+
+    try {
+      const updatedChat = await updateChat(chatId, { body: trimmedBody })
+
+      setChats((currentChats) =>
+        currentChats.map((chat) => (chat.id === chatId ? updatedChat : chat)),
+      )
+      cancelEditing()
+    } catch (updateError) {
+      setSubmitError(updateError.message)
+    } finally {
+      setSavingChatId(null)
+    }
+  }
+
+  const handleDelete = async (chatId) => {
+    setDeletingChatId(chatId)
+    setSubmitError('')
+
+    try {
+      await deleteChat(chatId)
+      setChats((currentChats) => currentChats.filter((chat) => chat.id !== chatId))
+    } catch (deleteError) {
+      setSubmitError(deleteError.message)
+    } finally {
+      setDeletingChatId(null)
     }
   }
 
@@ -151,15 +214,64 @@ export function RoomChatPage() {
                 <span className="font-semibold text-stone-900">{chat.userName}</span>
                 <span className="text-stone-500">{formatDateTime(chat.createdAt)}</span>
               </div>
-              <p className="mt-2 text-stone-700">{chat.body}</p>
-              <button
-                className="mt-2 text-sm font-semibold text-rose-700 hover:text-rose-800 disabled:cursor-not-allowed disabled:text-stone-400"
-                disabled={likingChatId === chat.id}
-                onClick={() => handleLike(chat.id)}
-                type="button"
-              >
-                いいね {chat.likedCount}
-              </button>
+              {editingChatId === chat.id ? (
+                <div className="mt-2 space-y-2">
+                  <input
+                    className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600"
+                    disabled={savingChatId === chat.id}
+                    onChange={(event) => setEditingBody(event.target.value)}
+                    value={editingBody}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className="rounded-md bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                      disabled={savingChatId === chat.id}
+                      onClick={() => handleUpdate(chat.id)}
+                      type="button"
+                    >
+                      {savingChatId === chat.id ? '保存中...' : '保存'}
+                    </button>
+                    <button
+                      className="rounded-md border border-stone-300 px-3 py-2 text-sm font-semibold text-stone-700 hover:border-stone-500"
+                      onClick={cancelEditing}
+                      type="button"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-2 text-stone-700">{chat.body}</p>
+              )}
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <button
+                  className="text-sm font-semibold text-rose-700 hover:text-rose-800 disabled:cursor-not-allowed disabled:text-stone-400"
+                  disabled={likingChatId === chat.id}
+                  onClick={() => handleLike(chat.id)}
+                  type="button"
+                >
+                  いいね {chat.likedCount}
+                </button>
+                {chat.userId === userId && editingChatId !== chat.id ? (
+                  <>
+                    <button
+                      className="text-sm font-semibold text-stone-600 hover:text-teal-700"
+                      onClick={() => startEditing(chat)}
+                      type="button"
+                    >
+                      編集
+                    </button>
+                    <button
+                      className="text-sm font-semibold text-stone-600 hover:text-rose-700 disabled:cursor-not-allowed disabled:text-stone-400"
+                      disabled={deletingChatId === chat.id}
+                      onClick={() => handleDelete(chat.id)}
+                      type="button"
+                    >
+                      {deletingChatId === chat.id ? '削除中...' : '削除'}
+                    </button>
+                  </>
+                ) : null}
+              </div>
             </article>
           ))}
         </div>
