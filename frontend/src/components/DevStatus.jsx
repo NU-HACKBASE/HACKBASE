@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { apiBaseUrl, wsUrl } from '../lib/config'
+import { apiRequest } from '../lib/apiClient'
 
 const statusStyles = {
   ok: 'border-emerald-200 bg-emerald-50 text-emerald-700',
@@ -27,11 +28,13 @@ export function DevStatus() {
   useEffect(() => {
     const loadHealth = async () => {
       try {
-        const response = await fetch(`${apiBaseUrl}/health`)
-        const data = await response.json()
+        const data = await apiRequest('/health', {
+          auth: false,
+          baseUrl: apiBaseUrl,
+        })
 
         setHealth(data)
-        setHealthStatus(response.ok ? data.status : 'degraded')
+        setHealthStatus(data.status)
       } catch {
         setHealthStatus('error')
       }
