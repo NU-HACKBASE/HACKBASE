@@ -75,7 +75,8 @@ export class RoomService {
     await this.roomRepository.delete(roomId)
   }
 
-  async analyzeRoom(roomId: string) {
+  async analyzeRoom(session: AuthSession, roomId: string) {
+    this.authService.requireAdmin(session)
     const room = await this.roomRepository.findById(roomId)
 
     if (!room) {

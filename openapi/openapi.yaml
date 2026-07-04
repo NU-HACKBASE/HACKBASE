@@ -329,6 +329,8 @@ paths:
     post:
       operationId: analyzeRoom
       tags: [Rooms]
+      security:
+        - bearerAuth: []
       summary: Generate room heat and summary
       parameters:
         - $ref: "#/components/parameters/RoomId"
@@ -440,6 +442,13 @@ paths:
       responses:
         "200":
           description: Chat with like count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chat:
+                    $ref: "#/components/schemas/Chat"
     delete:
       operationId: unlikeChat
       tags: [Chats]
@@ -451,6 +460,13 @@ paths:
       responses:
         "200":
           description: Chat with like count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chat:
+                    $ref: "#/components/schemas/Chat"
 components:
   securitySchemes:
     bearerAuth:

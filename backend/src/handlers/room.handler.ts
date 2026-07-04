@@ -53,7 +53,8 @@ export class RoomHandler {
   }
 
   analyzeRoom = async (c: Context) => {
-    const result = await this.roomService.analyzeRoom(requireParam(c, 'roomId'))
+    const session = this.authService.verifyToken(getBearerToken(c))
+    const result = await this.roomService.analyzeRoom(session, requireParam(c, 'roomId'))
 
     return c.json(result)
   }
