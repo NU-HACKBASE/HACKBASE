@@ -1,10 +1,97 @@
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 
-import { sampleEvents, sampleRooms } from '../lib/sampleData'
+import { fetchEvent, fetchEventRooms, joinEvent } from '../lib/eventApi'
 
 export function EventDetailPage() {
   const { eventId } = useParams()
-  const event = sampleEvents.find((item) => item.id === eventId) ?? sampleEvents[0]
+  const navigate = useNavigate()
+  const [event, setEvent] = useState(null)
+  const [rooms, setRooms] = useState([])
+  const [status, setStatus] = useState('loading')
+  const [error, setError] = useState('')
+  const [joinStatus, setJoinStatus] = useState('idle')
+  const [joinError, setJoinError] = useState('')
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    const loadEvent = async () => {
+      setStatus('loading')
+      setError('')
+
+      try {
+        const [nextEvent, nextRooms] = await Promise.all([
+          fetchEvent(eventId, { signal: controller.signal }),
+          fetchEventRooms(eventId, { signal: controller.signal }),
+        ])
+
+        setEvent(nextEvent)
+        setRooms(nextRooms)
+        setStatus('ready')
+      } catch (loadError) {
+        if (controller.signal.aborted) {
+          return
+        }
+
+        setError(loadError.message)
+        setStatus('error')
+      }
+    }
+
+    loadEvent()
+
+    return () => {
+      controller.abort()
+    }
+  }, [eventId])
+
+  const handleJoin = async () => {
+    setJoinStatus('joining')
+    setJoinError('')
+
+    try {
+      const result = await joinEvent(eventId)
+
+      if (result.event?.id) {
+        setEvent(result.event)
+      }
+
+      if (rooms[0]) {
+        navigate(`/${eventId}/${rooms[0].id}`)
+        return
+      }
+
+      setJoinStatus('joined')
+    } catch (error) {
+      setJoinError(error.message)
+      setJoinStatus('idle')
+    }
+  }
+
+  if (status === 'loading') {
+    return (
+      <p className="rounded-md border border-stone-200 bg-white p-4 text-sm text-stone-600">
+        イベントを読み込み中です。
+      </p>
+    )
+  }
+
+  if (status === 'error') {
+    return (
+      <p className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+        {error}
+      </p>
+    )
+  }
+
+  if (!event) {
+    return (
+      <p className="rounded-md border border-stone-200 bg-white p-4 text-sm text-stone-600">
+        イベントが見つかりません。
+      </p>
+    )
+  }
 
   return (
     <div className="grid gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
@@ -29,15 +116,27 @@ export function EventDetailPage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-xl font-semibold tracking-normal">ルーム</h2>
-          <Link
-            className="rounded-md bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800"
-            to={`/${event.id}/${sampleRooms[0].id}`}
+          <button
+            className="rounded-md bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+            disabled={joinStatus === 'joining'}
+            onClick={handleJoin}
+            type="button"
           >
-            参加
-          </Link>
+            {joinStatus === 'joining' ? '参加中...' : '参加'}
+          </button>
         </div>
+        {joinStatus === 'joined' ? (
+          <p className="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-800">
+            イベントに参加しました。
+          </p>
+        ) : null}
+        {joinError ? (
+          <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {joinError}
+          </p>
+        ) : null}
         <div className="grid gap-3 md:grid-cols-3">
-          {sampleRooms.map((room) => (
+          {rooms.map((room) => (
             <Link
               className="rounded-md border border-stone-200 bg-white p-4 hover:border-teal-500"
               key={room.id}
