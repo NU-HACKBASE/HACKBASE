@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { fetchEvent, fetchEventRooms, joinEvent } from '../lib/eventApi'
 
+const joinedEventIdsStorageKey = 'hackbase:joinedEventIds'
+
 export function EventDetailPage() {
   const { eventId } = useParams()
   const navigate = useNavigate()
@@ -10,7 +12,9 @@ export function EventDetailPage() {
   const [rooms, setRooms] = useState([])
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
-  const [joinStatus, setJoinStatus] = useState('idle')
+  const [joinStatus, setJoinStatus] = useState(() =>
+    hasJoinedEvent(eventId) ? 'joined' : 'idle',
+  )
   const [joinError, setJoinError] = useState('')
 
   useEffect(() => {
@@ -28,6 +32,7 @@ export function EventDetailPage() {
 
         setEvent(nextEvent)
         setRooms(nextRooms)
+        setJoinStatus(hasJoinedEvent(eventId) ? 'joined' : 'idle')
         setStatus('ready')
       } catch (loadError) {
         if (controller.signal.aborted) {
@@ -47,22 +52,37 @@ export function EventDetailPage() {
   }, [eventId])
 
   const handleJoin = async () => {
+    const alreadyJoined = hasJoinedEvent(eventId)
+
+    if (alreadyJoined) {
+      setJoinStatus('joined')
+      return
+    }
+
     setJoinStatus('joining')
     setJoinError('')
 
     try {
       const result = await joinEvent(eventId)
 
-      if (result.event?.id) {
-        setEvent(result.event)
+      rememberJoinedEvent(eventId)
+      setJoinStatus('joined')
+
+      if (result.event?.id || event) {
+        const responseParticipants = result.event?.participants ?? 0
+        const currentParticipants = event?.participants ?? 0
+        const nextParticipants = Math.max(responseParticipants, currentParticipants + 1)
+
+        setEvent({
+          ...(result.event ?? event),
+          participants: nextParticipants,
+        })
       }
 
       if (rooms[0]) {
         navigate(`/${eventId}/${rooms[0].id}`)
         return
       }
-
-      setJoinStatus('joined')
     } catch (error) {
       setJoinError(error.message)
       setJoinStatus('idle')
@@ -118,11 +138,11 @@ export function EventDetailPage() {
           <h2 className="text-xl font-semibold tracking-normal">ルーム</h2>
           <button
             className="rounded-md bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-stone-400"
-            disabled={joinStatus === 'joining'}
+            disabled={joinStatus === 'joining' || joinStatus === 'joined'}
             onClick={handleJoin}
             type="button"
           >
-            {joinStatus === 'joining' ? '参加中...' : '参加'}
+            {getJoinButtonLabel(joinStatus)}
           </button>
         </div>
         {joinStatus === 'joined' ? (
@@ -156,4 +176,45 @@ export function EventDetailPage() {
       </section>
     </div>
   )
+}
+
+function hasJoinedEvent(eventId) {
+  if (!eventId) {
+    return false
+  }
+
+  return readJoinedEventIds().includes(eventId)
+}
+
+function rememberJoinedEvent(eventId) {
+  if (!eventId) {
+    return
+  }
+
+  const eventIds = new Set(readJoinedEventIds())
+  eventIds.add(eventId)
+  localStorage.setItem(joinedEventIdsStorageKey, JSON.stringify([...eventIds]))
+}
+
+function readJoinedEventIds() {
+  try {
+    const value = localStorage.getItem(joinedEventIdsStorageKey)
+    const parsedValue = JSON.parse(value ?? '[]')
+
+    return Array.isArray(parsedValue) ? parsedValue : []
+  } catch {
+    return []
+  }
+}
+
+function getJoinButtonLabel(joinStatus) {
+  if (joinStatus === 'joining') {
+    return '参加中...'
+  }
+
+  if (joinStatus === 'joined') {
+    return '参加済み'
+  }
+
+  return '参加'
 }
