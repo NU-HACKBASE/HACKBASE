@@ -136,6 +136,7 @@ export function MapPage() {
   const [locationInfo, setLocationInfo] = useState(getInitialLocation)
   const [nearbyEvents, setNearbyEvents] = useState([])
   const [isEventsOpen, setIsEventsOpen] = useState(false)
+  const [canJoinNearbyEvent, setCanJoinNearbyEvent] = useState(false)
 
   // 地図の初期化処理
   useEffect(() => {
@@ -202,6 +203,8 @@ export function MapPage() {
     const renderEvents = (events, currentPosition) => {
       eventLayersRef.current.forEach((layer) => layer.remove())
 
+      let hasJoinableEvent = false
+
       eventLayersRef.current = events.flatMap((event) => {
         if (!Number.isFinite(event.latitude) || !Number.isFinite(event.longitude)) {
           return []
@@ -216,6 +219,11 @@ export function MapPage() {
             event.latitude,
             event.longitude,
           ) <= event.radius
+
+        if (isInsideEventZone) {
+          hasJoinableEvent = true
+        }
+
         const circle = L.circle([event.latitude, event.longitude], {
           radius: event.radius,
           className: isInsideEventZone
@@ -266,6 +274,8 @@ export function MapPage() {
 
         return [circle, eventMarker]
       })
+
+      setCanJoinNearbyEvent(hasJoinableEvent)
     }
 
     const loadNearbyEvents = async (latitude, longitude) => {
@@ -461,6 +471,14 @@ export function MapPage() {
   return (
     <div className="current-location-map">
       <div className="current-location-map__canvas" ref={mapElementRef} />
+      {canJoinNearbyEvent ? (
+        <div className="map-hint-banner" role="status">
+          <span className="map-hint-banner__icon" aria-hidden="true">
+            !
+          </span>
+          <span>近くのイベントに参加できます</span>
+        </div>
+      ) : null}
       <aside className="info-panel">
         <h1 className="info-title">Current Location</h1>
         <p className="info-place">{locationInfo.placeName}</p>
