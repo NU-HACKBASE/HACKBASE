@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import type { AiService } from '../external/ai.service.js'
 import type { ChatRepository } from '../repositories/chat.repository.js'
 import type { EventRepository } from '../repositories/event.repository.js'
 import type { RoomRepository } from '../repositories/room.repository.js'
@@ -35,8 +36,19 @@ const room = {
   createdAt: '2026-07-04T00:00:00.000Z',
 }
 
-function createService(options: { roomExists?: boolean; chats?: Awaited<ReturnType<ChatRepository['listByRoomId']>> } = {}) {
-  const calls: { updateInput?: unknown; deletedRoomId?: string; analysisInput?: unknown } = {}
+function createService(
+  options: {
+    roomExists?: boolean
+    chats?: Awaited<ReturnType<ChatRepository['listByRoomId']>>
+    analysis?: Awaited<ReturnType<AiService['analyzeRoom']>>
+  } = {},
+) {
+  const calls: {
+    updateInput?: unknown
+    deletedRoomId?: string
+    analysisInput?: unknown
+    aiAnalysisInput?: unknown
+  } = {}
   const eventRepository = {
     findById: async (eventId) => (eventId === 'event-1' ? event : null),
   } satisfies Partial<EventRepository>
@@ -54,6 +66,11 @@ function createService(options: { roomExists?: boolean; chats?: Awaited<ReturnTy
 
       return { ...room, ...input, roomId }
     },
+    listAnalysisDueRooms: async () => [{ roomId: 'room-1', analyzedAt: null }],
+    markAnalysisProcessing: async () => true,
+    markAnalysisFailed: async (roomId, errorMessage) => {
+      calls.analysisInput = { roomId, errorMessage }
+    },
     delete: async (roomId) => {
       calls.deletedRoomId = roomId
 
@@ -62,6 +79,7 @@ function createService(options: { roomExists?: boolean; chats?: Awaited<ReturnTy
   } satisfies Partial<RoomRepository>
   const chatRepository = {
     listByRoomId: async () => options.chats ?? [],
+    countByRoomId: async () => options.chats?.length ?? 0,
   } satisfies Partial<ChatRepository>
   const authService = {
     requireAdmin: (session) => {
@@ -70,11 +88,23 @@ function createService(options: { roomExists?: boolean; chats?: Awaited<ReturnTy
       }
     },
   } satisfies Partial<AuthService>
+  const aiService = {
+    analyzeRoom: async (input) => {
+      calls.aiAnalysisInput = input
+
+      return options.analysis ?? {
+        heat: 16,
+        summary: '最近の話題: Hello',
+        trends: ['Hello'],
+      }
+    },
+  } satisfies Partial<AiService>
   const service = new RoomService(
     eventRepository as unknown as EventRepository,
     roomRepository as unknown as RoomRepository,
     chatRepository as unknown as ChatRepository,
     authService as unknown as AuthService,
+    aiService as unknown as AiService,
   )
 
   return { calls, service }
@@ -164,10 +194,22 @@ test('RoomService analyzes a room for an admin', async () => {
 
   assert.equal(result.analysis.heat, 16)
   assert.equal(result.analysis.summary, '最近の話題: Hello')
+  assert.deepEqual(calls.aiAnalysisInput, {
+    roomTitle: 'Main',
+    chats: [
+      {
+        userName: 'guest',
+        body: 'Hello',
+        likedCount: 2,
+        createdAt: '2026-07-04T00:00:00.000Z',
+      },
+    ],
+  })
   assert.deepEqual(calls.analysisInput, {
     roomId: 'room-1',
     heat: 16,
     summary: '最近の話題: Hello',
+    analyzedChatCount: 1,
   })
 })
 
@@ -177,5 +219,28 @@ test('RoomService rejects room analysis without admin role', async () => {
   await assert.rejects(() => service.analyzeRoom(anonymousSession, 'room-1'), {
     status: 403,
     code: 'FORBIDDEN',
+  })
+})
+
+test('RoomService runs due room analyses with a repository claim', async () => {
+  const { service } = createService({
+    chats: [
+      {
+        chatId: 'chat-1',
+        roomId: 'room-1',
+        eventId: 'event-1',
+        userId: 'user-1',
+        userName: 'guest',
+        body: 'Hello',
+        likedCount: 2,
+        createdAt: '2026-07-04T00:00:00.000Z',
+        updatedAt: null,
+      },
+    ],
+  })
+
+  assert.deepEqual(await service.runDueRoomAnalyses({ cutoffIso: '2026-07-04T00:01:00.000Z', limit: 5 }), {
+    checked: 1,
+    analyzed: 1,
   })
 })

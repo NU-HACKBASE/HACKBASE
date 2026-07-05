@@ -9,6 +9,7 @@ import { parse } from 'yaml'
 
 import { env } from './config/env.js'
 import { supabaseAdmin } from './db/supabase.js'
+import { AiService } from './external/ai.service.js'
 import { ChatHandler } from './handlers/chat.handler.js'
 import { EventHandler } from './handlers/event.handler.js'
 import { HealthHandler } from './handlers/health.handler.js'
@@ -25,6 +26,7 @@ import { AuthService } from './services/auth.service.js'
 import { ChatService } from './services/chat.service.js'
 import { EventService } from './services/event.service.js'
 import { HealthService } from './services/health.service.js'
+import { RoomAnalysisScheduler } from './services/room-analysis.scheduler.js'
 import { RoomService } from './services/room.service.js'
 import { UserService } from './services/user.service.js'
 import { ApiError, errorBody } from './utils/api-error.js'
@@ -60,6 +62,7 @@ export const createApp = () => {
   const eventRepository = new EventRepository(supabaseAdmin)
   const roomRepository = new RoomRepository(supabaseAdmin)
   const chatRepository = new ChatRepository(supabaseAdmin)
+  const aiService = new AiService()
   const userService = new UserService(userRepository, authService)
   const eventService = new EventService(eventRepository, authService)
   const roomService = new RoomService(
@@ -67,8 +70,13 @@ export const createApp = () => {
     roomRepository,
     chatRepository,
     authService,
+    aiService,
   )
   const chatService = new ChatService(roomRepository, chatRepository)
+  const roomAnalysisScheduler = new RoomAnalysisScheduler(roomService, {
+    intervalMs: env.roomAnalysisIntervalMs,
+    batchSize: env.roomAnalysisBatchSize,
+  })
   const userHandler = new UserHandler(userService, authService)
   const eventHandler = new EventHandler(eventService, authService)
   const roomHandler = new RoomHandler(roomService, authService)
@@ -87,6 +95,8 @@ export const createApp = () => {
 
   app.get('/openapi.json', (c) => c.json(openApiDocument))
   app.get('/docs', swaggerUI({ url: '/openapi.json' }))
+
+  roomAnalysisScheduler.start()
 
   app.notFound((c) => {
     return c.json(

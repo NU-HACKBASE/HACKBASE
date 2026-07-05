@@ -5,6 +5,11 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { RoomRecord } from '../types/api.js'
 import { throwIfSupabaseError, toIsoString } from './supabase-utils.js'
 
+export type RoomAnalysisCandidate = {
+  roomId: string
+  analyzedAt: string | null
+}
+
 type RoomRow = {
   id: string
   event_id: string
@@ -12,6 +17,11 @@ type RoomRow = {
   heat: number
   summary: string
   created_at: string
+}
+
+type RoomAnalysisRow = {
+  id: string
+  analyzed_at: string | null
 }
 
 type ChatUserRow = {
@@ -69,18 +79,80 @@ export class RoomRepository {
     return data ? this.mapRoom(data) : null
   }
 
-  async updateAnalysis(roomId: string, input: { heat: number; summary: string }) {
+  async updateAnalysis(roomId: string, input: { heat: number; summary: string; analyzedChatCount?: number }) {
     const { error } = await this.db
       .from('rooms')
       .update({
         heat: input.heat,
         summary: input.summary,
+        analyzed_at: new Date().toISOString(),
+        analyzed_chat_count: input.analyzedChatCount ?? 0,
+        analysis_status: 'idle',
+        analysis_error: null,
       })
       .eq('id', roomId)
 
     throwIfSupabaseError(error)
 
     return this.findById(roomId)
+  }
+
+  async listAnalysisDueRooms(cutoffIso: string, limit: number): Promise<RoomAnalysisCandidate[]> {
+    const { data, error } = await this.db
+      .from('rooms')
+      .select('id, analyzed_at')
+      .eq('analysis_status', 'idle')
+      .or(`analyzed_at.is.null,analyzed_at.lte.${cutoffIso}`)
+      .order('analyzed_at', { ascending: true, nullsFirst: true })
+      .limit(limit)
+      .returns<RoomAnalysisRow[]>()
+
+    throwIfSupabaseError(error)
+
+    return (data ?? []).map((row) => ({
+      roomId: row.id,
+      analyzedAt: row.analyzed_at ? toIsoString(row.analyzed_at) : null,
+    }))
+  }
+
+  async markAnalysisProcessing(roomId: string): Promise<boolean> {
+    const { data, error } = await this.db
+      .from('rooms')
+      .update({
+        analysis_status: 'processing',
+        analysis_error: null,
+      })
+      .eq('id', roomId)
+      .eq('analysis_status', 'idle')
+      .select('id')
+
+    throwIfSupabaseError(error)
+
+    return (data ?? []).length > 0
+  }
+
+  async markAnalysisRequested(roomId: string) {
+    const { error } = await this.db
+      .from('rooms')
+      .update({
+        analysis_status: 'idle',
+        analysis_error: null,
+      })
+      .eq('id', roomId)
+
+    throwIfSupabaseError(error)
+  }
+
+  async markAnalysisFailed(roomId: string, errorMessage: string) {
+    const { error } = await this.db
+      .from('rooms')
+      .update({
+        analysis_status: 'error',
+        analysis_error: errorMessage.slice(0, 500),
+      })
+      .eq('id', roomId)
+
+    throwIfSupabaseError(error)
   }
 
   async update(roomId: string, input: { title?: string; summary?: string }) {

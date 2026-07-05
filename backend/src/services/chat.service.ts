@@ -31,6 +31,7 @@ export class ChatService {
       body: input.body.trim(),
     })
 
+    await this.roomRepository.markAnalysisRequested(roomId)
     this.publishChatEvent('chat.created', chat)
 
     return chat
@@ -44,6 +45,8 @@ export class ChatService {
     const chat = await this.ensureOwnChat(session, chatId)
     const updated = await this.chatRepository.update(chat.chatId, input.body.trim())
 
+    await this.roomRepository.markAnalysisRequested(chat.roomId)
+
     if (updated) {
       this.publishChatEvent('chat.updated', updated)
     }
@@ -55,6 +58,7 @@ export class ChatService {
     const chat = await this.ensureOwnChat(session, chatId)
 
     await this.chatRepository.delete(chat.chatId)
+    await this.roomRepository.markAnalysisRequested(chat.roomId)
     this.publishChatEvent('chat.deleted', {
       chatId: chat.chatId,
       roomId: chat.roomId,
@@ -62,12 +66,13 @@ export class ChatService {
   }
 
   async likeChat(session: AuthSession, chatId: string) {
-    await this.ensureChat(chatId)
-
+    const chat = await this.ensureChat(chatId)
     const liked = await this.chatRepository.like({
       chatId,
       userId: session.userId,
     })
+
+    await this.roomRepository.markAnalysisRequested(chat.roomId)
 
     if (liked) {
       this.publishChatEvent('chat.updated', liked)
@@ -77,12 +82,13 @@ export class ChatService {
   }
 
   async unlikeChat(session: AuthSession, chatId: string) {
-    await this.ensureChat(chatId)
-
+    const chat = await this.ensureChat(chatId)
     const unliked = await this.chatRepository.unlike({
       chatId,
       userId: session.userId,
     })
+
+    await this.roomRepository.markAnalysisRequested(chat.roomId)
 
     if (unliked) {
       this.publishChatEvent('chat.updated', unliked)
