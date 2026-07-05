@@ -58,12 +58,133 @@ body {
   color: #4b5563;
 }
 
+.info-place {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.nearby-events {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.nearby-events__toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nearby-events__title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #475569;
+}
+
+.nearby-events__summary {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.nearby-events__empty {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.nearby-events__list {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nearby-events__item + .nearby-events__item {
+  margin-top: 8px;
+}
+
+.nearby-events__button {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(241, 245, 249, 0.95);
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nearby-events__name {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.nearby-events__meta {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.recenter-button {
+  position: fixed;
+  right: 10px;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
+  cursor: pointer;
+}
+
+.recenter-button__icon {
+  position: relative;
+  width: 18px;
+  height: 24px;
+}
+
+.recenter-button__pin {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px 999px 999px 0;
+  background: #3b82f6;
+  transform: rotate(-45deg);
+}
+
+.recenter-button__pin::after {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 8px;
+  height: 8px;
+  content: "";
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+}
+
 .arrow-marker {
   width: 0;
   height: 0;
-  border-left: 12px solid transparent;
-  border-right: 12px solid transparent;
-  border-bottom: 28px solid #0f766e;
+  border-left: 14px solid transparent;
+  border-right: 14px solid transparent;
+  border-bottom: 32px solid #2563eb;
   filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.35));
   transform-origin: 50% 75%;
 }
