@@ -2,6 +2,8 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef, useState } from 'react'
 
+import { useCurrentUser } from '../hooks/useCurrentUser'
+
 const DEFAULT_CENTER = { latitude: 35.681236, longitude: 139.767125 }
 
 const INITIAL_LOCATION = {
@@ -56,6 +58,7 @@ function formatCoordinate(value) {
 }
 
 export function MapPage() {
+  const { isReady } = useCurrentUser()
   const mapElementRef = useRef(null)
   const mapRef = useRef(null)
   const markerRef = useRef(null)
@@ -66,7 +69,7 @@ export function MapPage() {
   const [locationInfo, setLocationInfo] = useState(getInitialLocation)
 
   useEffect(() => {
-    if (!mapElementRef.current || mapRef.current) {
+    if (!isReady || !mapElementRef.current || mapRef.current) {
       return undefined
     }
 
@@ -92,10 +95,10 @@ export function MapPage() {
       mapRef.current = null
       markerRef.current = null
     }
-  }, [])
+  }, [isReady])
 
   useEffect(() => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+    if (!isReady || typeof navigator === 'undefined' || !navigator.geolocation) {
       return undefined
     }
 
@@ -208,7 +211,11 @@ export function MapPage() {
         navigator.geolocation.clearWatch(watchIdRef.current)
       }
     }
-  }, [])
+  }, [isReady])
+
+  if (!isReady) {
+    return null
+  }
 
   return (
     <div className="current-location-map">
