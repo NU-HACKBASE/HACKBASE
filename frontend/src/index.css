@@ -28,11 +28,12 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  max-width: min(44vw, 220px);
+  padding: 8px 12px;
   border-radius: 999px;
   background: rgba(15, 23, 42, 0.9);
   color: #fff;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
   backdrop-filter: blur(10px);
@@ -41,13 +42,18 @@ body {
 .map-hint-banner__icon {
   display: inline-grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
   border-radius: 999px;
   background: #facc15;
   color: #111827;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
+}
+
+.map-hint-banner__text {
+  line-height: 1.25;
 }
 
 .info-panel {
@@ -55,8 +61,9 @@ body {
   top: 16px;
   right: 16px;
   z-index: 1000;
-  width: min(360px, calc(100vw - 32px));
-  padding: 14px 16px;
+  width: min(50vw, 280px);
+  min-width: 190px;
+  padding: 10px 12px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.92);
   color: #111827;
@@ -66,7 +73,7 @@ body {
 
 .info-title {
   margin: 0 0 10px;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -90,14 +97,14 @@ body {
 
 .info-place {
   margin: 0;
-  font-size: 18px;
+  font-size: clamp(14px, 2vw, 18px);
   font-weight: 700;
   line-height: 1.4;
 }
 
 .nearby-events {
-  margin-top: 14px;
-  padding-top: 12px;
+  margin-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid rgba(148, 163, 184, 0.35);
 }
 
@@ -115,14 +122,14 @@ body {
 
 .nearby-events__title {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: #475569;
 }
 
 .nearby-events__summary {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: #2563eb;
 }
@@ -146,9 +153,9 @@ body {
 .nearby-events__button {
   display: block;
   width: 100%;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 10px;
   background: rgba(241, 245, 249, 0.95);
   color: #0f172a;
   text-align: left;
@@ -157,14 +164,14 @@ body {
 
 .nearby-events__name {
   display: block;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .nearby-events__meta {
   display: block;
   margin-top: 3px;
-  font-size: 12px;
+  font-size: 10px;
   color: #64748b;
 }
 

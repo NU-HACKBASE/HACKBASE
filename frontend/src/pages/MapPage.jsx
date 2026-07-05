@@ -483,7 +483,9 @@ export function MapPage() {
           <span className="map-hint-banner__icon" aria-hidden="true">
             !
           </span>
-          <span>近くのイベントに参加できます</span>
+          <span className="map-hint-banner__text">
+            近くのイベントに<wbr />参加できます
+          </span>
         </div>
       ) : null}
       <aside className="info-panel">
