@@ -242,19 +242,14 @@ export function RoomChatPage() {
             <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
             参加者: {participantCount}人
           </span>
-          <button
-            className="rounded-md bg-zinc-600/80 px-3 py-1.5 text-sm font-semibold text-zinc-100"
-            type="button"
-          >
-            話題の要約
-          </button>
         </div>
 
         {room.summary ? (
           <div className="mt-4 rounded-md bg-red-900/55 px-3 py-2 text-sm leading-5 text-red-50">
             <span className="mr-2 rounded bg-red-700/80 px-1.5 py-0.5 font-medium">
-              お知らせ
+              このチャットの様子
             </span>
+            <br/>
             {room.summary}
           </div>
         ) : null}

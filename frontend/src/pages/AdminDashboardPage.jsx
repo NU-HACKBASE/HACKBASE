@@ -38,6 +38,7 @@ export function AdminDashboardPage() {
   const [roomForm, setRoomForm] = useState(initialRoomForm)
   const [status, setStatus] = useState('loading')
   const [detailStatus, setDetailStatus] = useState('idle')
+  const [analyzingRoomId, setAnalyzingRoomId] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
@@ -239,19 +240,24 @@ export function AdminDashboardPage() {
   }
 
   const handleAnalyzeRoom = async (roomId) => {
-    if (!selectedEventId) {
+    if (!selectedEventId || analyzingRoomId) {
       return
     }
 
     setError('')
     setMessage('')
+    setAnalyzingRoomId(roomId)
 
     try {
-      await analyzeRoom(roomId, { token: adminToken })
-      setMessage('ルームを分析しました')
+      const result = await analyzeRoom(roomId, { token: adminToken })
+      const summary = result.analysis?.summary || result.room?.summary
+
+      setMessage(summary ? `ルームを分析しました: ${summary}` : 'ルームを分析しました')
       await loadEventDetails(selectedEventId)
     } catch (analyzeError) {
       setError(analyzeError.message)
+    } finally {
+      setAnalyzingRoomId('')
     }
   }
 
@@ -370,6 +376,7 @@ export function AdminDashboardPage() {
           </div>
 
           <SelectedEventPanel
+            analyzingRoomId={analyzingRoomId}
             detailStatus={detailStatus}
             onAnalyzeRoom={handleAnalyzeRoom}
             onDeleteRoom={handleDeleteRoom}
@@ -479,6 +486,7 @@ function RoomForm({ disabled, editingRoomId, form, onChange, onReset, onSubmit }
 }
 
 function SelectedEventPanel({
+  analyzingRoomId,
   detailStatus,
   onAnalyzeRoom,
   onDeleteRoom,
@@ -526,8 +534,13 @@ function SelectedEventPanel({
                   <button className="text-sm font-medium text-rose-700" onClick={() => onEditRoom(room)} type="button">
                     編集
                   </button>
-                  <button className="text-sm font-medium text-stone-700" onClick={() => onAnalyzeRoom(room.id)} type="button">
-                    分析
+                  <button
+                    className="text-sm font-medium text-stone-700 disabled:cursor-wait disabled:text-stone-400"
+                    disabled={Boolean(analyzingRoomId)}
+                    onClick={() => onAnalyzeRoom(room.id)}
+                    type="button"
+                  >
+                    {analyzingRoomId === room.id ? '分析中' : '分析'}
                   </button>
                   <button className="text-sm font-medium text-red-700" onClick={() => onDeleteRoom(room.id)} type="button">
                     削除
