@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { useCurrentUser } from '../hooks/useCurrentUser'
+import {
+  mergeRealtimeChat,
+  removeRealtimeChat,
+  useRoomChatSocket,
+} from '../hooks/useRoomChatSocket'
 import { createRoomChat, deleteChat, likeChat, updateChat } from '../lib/chatApi'
 import { fetchRoom } from '../lib/roomApi'
 
@@ -99,6 +104,18 @@ export function RoomChatPage() {
     }
   }, [roomId])
 
+  useRoomChatSocket(roomId, {
+    onChatCreated: (chat) => {
+      setChats((currentChats) => mergeRealtimeChat(currentChats, chat))
+    },
+    onChatUpdated: (chat) => {
+      setChats((currentChats) => mergeRealtimeChat(currentChats, chat))
+    },
+    onChatDeleted: (chatId) => {
+      setChats((currentChats) => removeRealtimeChat(currentChats, chatId))
+    },
+  })
+
   // このルーム画面を開いているタブを現在参加中として扱う
   useEffect(() => {
     const touchPresence = () => {
@@ -156,7 +173,7 @@ export function RoomChatPage() {
     try {
       const chat = await createRoomChat(roomId, { body: trimmedMessage })
 
-      setChats((currentChats) => [...currentChats, chat])
+      setChats((currentChats) => mergeRealtimeChat(currentChats, chat))
       setMessage('')
       setSubmitStatus('idle')
     } catch (createError) {
@@ -173,9 +190,7 @@ export function RoomChatPage() {
     try {
       const likedChat = await likeChat(chatId)
 
-      setChats((currentChats) =>
-        currentChats.map((chat) => (chat.id === chatId ? likedChat : chat)),
-      )
+      setChats((currentChats) => mergeRealtimeChat(currentChats, likedChat))
     } catch (likeError) {
       setSubmitError(likeError.message)
     } finally {
@@ -209,9 +224,7 @@ export function RoomChatPage() {
     try {
       const updatedChat = await updateChat(chatId, { body: trimmedBody })
 
-      setChats((currentChats) =>
-        currentChats.map((chat) => (chat.id === chatId ? updatedChat : chat)),
-      )
+      setChats((currentChats) => mergeRealtimeChat(currentChats, updatedChat))
       cancelEditing()
     } catch (updateError) {
       setSubmitError(updateError.message)

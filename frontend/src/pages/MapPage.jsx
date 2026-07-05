@@ -28,14 +28,13 @@ function getInitialLocation() {
       placeName: '位置情報を使えないブラウザです',
     }
   }
-
   return INITIAL_LOCATION
 }
 
 function createArrowIcon() {
   return L.divIcon({
     className: '',
-    html: '<div class="arrow-marker"></div>',
+    html: '<div class="arrow-marker" style="width: 20px; height: 20px; background-color: #06b6d4; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>',
     iconSize: [24, 28],
     iconAnchor: [12, 20],
   })
@@ -74,15 +73,12 @@ async function reverseGeocode(latitude, longitude) {
   url.searchParams.set('accept-language', 'ja')
 
   const response = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-    },
+    headers: { Accept: 'application/json' },
   })
 
   if (!response.ok) {
     throw new Error(`Reverse geocoding failed: ${response.status}`)
   }
-
   return response.json()
 }
 
@@ -141,8 +137,9 @@ export function MapPage() {
   const [nearbyEvents, setNearbyEvents] = useState([])
   const [isEventsOpen, setIsEventsOpen] = useState(false)
 
+  // 地図の初期化処理
   useEffect(() => {
-    if (!isReady || !mapElementRef.current || mapRef.current) {
+    if (!mapElementRef.current || mapRef.current) {
       return undefined
     }
 
@@ -186,8 +183,9 @@ export function MapPage() {
       nearbyCircleRef.current = null
       eventLayersRef.current = []
     }
-  }, [isReady])
+  }, [])
 
+  // 位置情報の追跡処理
   useEffect(() => {
     if (
       !isReady ||
@@ -358,10 +356,7 @@ export function MapPage() {
 
       try {
         const result = await reverseGeocode(latitude, longitude)
-
-        if (cancelled) {
-          return
-        }
+        if (cancelled) return
 
         lastLookupRef.current = { key: lookupKey, at: now }
         setLocationInfo({
@@ -440,16 +435,11 @@ export function MapPage() {
 
     return () => {
       cancelled = true
-
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current)
       }
     }
-  }, [isReady])
-
-  if (!isReady) {
-    return null
-  }
+  }, [])
 
   const handleRecenter = () => {
     const currentPosition = currentPositionRef.current
