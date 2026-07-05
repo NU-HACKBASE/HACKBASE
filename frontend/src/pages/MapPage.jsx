@@ -143,8 +143,8 @@ export function MapPage() {
         radius: NEARBY_EVENT_RADIUS_METERS,
         color: 'rgba(255, 255, 255, 0.82)',
         weight: 1.5,
-        fillColor: 'rgba(255, 255, 255, 0.5)',
-        fillOpacity: 0.58,
+        fillColor: 'rgba(255, 255, 255, 0.82)',
+        fillOpacity: 0.50,
       },
     ).addTo(map)
 
