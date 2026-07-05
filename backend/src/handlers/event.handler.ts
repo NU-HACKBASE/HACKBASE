@@ -15,6 +15,11 @@ type CreateEventBody = {
 
 type UpdateEventBody = CreateEventBody
 
+type ListEventsQuery = {
+  latitude?: string
+  longitude?: string
+}
+
 export class EventHandler {
   constructor(
     private readonly eventService: EventService,
@@ -30,7 +35,15 @@ export class EventHandler {
   }
 
   listEvents = async (c: Context) => {
-    const events = await this.eventService.listEvents()
+    const query = c.req.query() as ListEventsQuery
+    const latitude =
+      query.latitude !== undefined ? Number(query.latitude) : undefined
+    const longitude =
+      query.longitude !== undefined ? Number(query.longitude) : undefined
+    const events = await this.eventService.listEvents({
+      latitude,
+      longitude,
+    })
 
     return c.json({ events })
   }

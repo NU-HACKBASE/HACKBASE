@@ -3,6 +3,8 @@ import type { AuthSession } from '../types/api.js'
 import { ApiError } from '../utils/api-error.js'
 import type { AuthService } from './auth.service.js'
 
+const NEARBY_EVENT_RADIUS_METERS = 200
+
 export class EventService {
   constructor(
     private readonly eventRepository: EventRepository,
@@ -37,8 +39,38 @@ export class EventService {
     })
   }
 
-  async listEvents() {
-    return this.eventRepository.list()
+  async listEvents(input?: {
+    latitude?: number
+    longitude?: number
+  }) {
+    const hasLatitude = input?.latitude !== undefined
+    const hasLongitude = input?.longitude !== undefined
+
+    if (hasLatitude !== hasLongitude) {
+      throw new ApiError(
+        400,
+        'VALIDATION_ERROR',
+        'latitude and longitude must be provided together',
+      )
+    }
+
+    if (
+      input?.latitude !== undefined &&
+      (!Number.isFinite(input.latitude) ||
+        !Number.isFinite(input.longitude))
+    ) {
+      throw new ApiError(
+        400,
+        'VALIDATION_ERROR',
+        'latitude and longitude must be valid numbers',
+      )
+    }
+
+    return this.eventRepository.list({
+      ...input,
+      nearbyRadiusMeters:
+        input?.latitude !== undefined ? NEARBY_EVENT_RADIUS_METERS : undefined,
+    })
   }
 
   async getEvent(eventId: string) {

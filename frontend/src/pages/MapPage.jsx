@@ -3,13 +3,21 @@ import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef, useState } from 'react'
 
 import { useCurrentUser } from '../hooks/useCurrentUser'
+import { fetchEvents } from '../lib/eventApi'
 
 const DEFAULT_CENTER = { latitude: 35.681236, longitude: 139.767125 }
+const NEARBY_EVENT_RADIUS_METERS = 200
 
 const INITIAL_LOCATION = {
   latitude: null,
   longitude: null,
   placeName: '取得中...',
+}
+
+const GEOLOCATION_ERROR_MESSAGES = {
+  1: '位置情報の利用が許可されていません',
+  2: '位置情報を取得できませんでした',
+  3: '位置情報の取得がタイムアウトしました',
 }
 
 function getInitialLocation() {
@@ -29,6 +37,30 @@ function createArrowIcon() {
     html: '<div class="arrow-marker"></div>',
     iconSize: [24, 28],
     iconAnchor: [12, 20],
+  })
+}
+
+function getEventColor(heat) {
+  if (heat >= 80) {
+    return '#f97316'
+  }
+
+  if (heat >= 60) {
+    return '#8b5cf6'
+  }
+
+  return '#10b981'
+}
+
+function createEventIcon(event) {
+  const color = getEventColor(event.heat)
+
+  return L.divIcon({
+    className: '',
+    html: `<div class="event-pin" style="--event-color: ${color}"><span></span></div>`,
+    iconSize: [42, 52],
+    iconAnchor: [21, 48],
+    popupAnchor: [0, -42],
   })
 }
 
@@ -57,11 +89,25 @@ function formatCoordinate(value) {
   return Number.isFinite(value) ? value.toFixed(6) : '取得中...'
 }
 
+function getGeolocationErrorMessage(error) {
+  if (error?.code && GEOLOCATION_ERROR_MESSAGES[error.code]) {
+    return GEOLOCATION_ERROR_MESSAGES[error.code]
+  }
+
+  if (error?.message) {
+    return error.message
+  }
+
+  return '位置情報を取得できませんでした'
+}
+
 export function MapPage() {
   const { isReady } = useCurrentUser()
   const mapElementRef = useRef(null)
   const mapRef = useRef(null)
   const markerRef = useRef(null)
+  const nearbyCircleRef = useRef(null)
+  const eventLayersRef = useRef([])
   const hasCenteredRef = useRef(false)
   const lastLookupRef = useRef({ key: '', at: 0 })
   const watchIdRef = useRef(null)
@@ -83,29 +129,104 @@ export function MapPage() {
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map)
 
-    const marker = L.marker([DEFAULT_CENTER.latitude, DEFAULT_CENTER.longitude], {
-      icon: createArrowIcon(),
-    }).addTo(map)
+    const marker = L.marker(
+      [DEFAULT_CENTER.latitude, DEFAULT_CENTER.longitude],
+      {
+        icon: createArrowIcon(),
+      },
+    ).addTo(map)
+
+    const nearbyCircle = L.circle(
+      [DEFAULT_CENTER.latitude, DEFAULT_CENTER.longitude],
+      {
+        radius: NEARBY_EVENT_RADIUS_METERS,
+        color: 'rgba(255, 255, 255, 0.82)',
+        weight: 1.5,
+        fillColor: 'rgba(255, 255, 255, 0.82)',
+        fillOpacity: 0.50,
+      },
+    ).addTo(map)
 
     mapRef.current = map
     markerRef.current = marker
+    nearbyCircleRef.current = nearbyCircle
 
     return () => {
+      eventLayersRef.current.forEach((layer) => layer.remove())
       map.remove()
       mapRef.current = null
       markerRef.current = null
+      nearbyCircleRef.current = null
+      eventLayersRef.current = []
     }
   }, [isReady])
 
   useEffect(() => {
-    if (!isReady || typeof navigator === 'undefined' || !navigator.geolocation) {
+    if (
+      !isReady ||
+      typeof navigator === 'undefined' ||
+      !navigator.geolocation
+    ) {
       return undefined
     }
 
     let cancelled = false
+    let hasReceivedPosition = false
+    let latestEventRequestId = 0
+
+    const renderEvents = (events) => {
+      eventLayersRef.current.forEach((layer) => layer.remove())
+
+      eventLayersRef.current = events.flatMap((event) => {
+        if (!Number.isFinite(event.latitude) || !Number.isFinite(event.longitude)) {
+          return []
+        }
+
+        const color = getEventColor(event.heat)
+        const circle = L.circle([event.latitude, event.longitude], {
+          radius: event.radius,
+          color,
+          weight: 2,
+          fillColor: color,
+          fillOpacity: 0.14,
+        }).addTo(mapRef.current)
+
+        const eventMarker = L.marker([event.latitude, event.longitude], {
+          icon: createEventIcon(event),
+        })
+          .bindPopup(
+            `<strong>${event.title}</strong><br>${event.address}<br>盛り上がり度: ${event.heat}<br>半径: ${event.radius}m`,
+          )
+          .addTo(mapRef.current)
+
+        return [circle, eventMarker]
+      })
+    }
+
+    const loadNearbyEvents = async (latitude, longitude) => {
+      latestEventRequestId += 1
+      const requestId = latestEventRequestId
+
+      eventLayersRef.current.forEach((layer) => layer.remove())
+      eventLayersRef.current = []
+
+      try {
+        const events = await fetchEvents({ latitude, longitude })
+
+        if (cancelled || requestId !== latestEventRequestId) {
+          return
+        }
+
+        renderEvents(events)
+      } catch (error) {
+        console.error(error)
+      }
+    }
 
     const updateArrowHeading = (heading) => {
-      const arrow = markerRef.current?.getElement()?.querySelector('.arrow-marker')
+      const arrow = markerRef.current
+        ?.getElement()
+        ?.querySelector('.arrow-marker')
 
       if (!arrow) {
         return
@@ -120,6 +241,8 @@ export function MapPage() {
         return
       }
 
+      hasReceivedPosition = true
+
       const latitude = position.coords.latitude
       const longitude = position.coords.longitude
       const heading = position.coords.heading
@@ -127,6 +250,7 @@ export function MapPage() {
       const now = Date.now()
 
       markerRef.current?.setLatLng([latitude, longitude])
+      nearbyCircleRef.current?.setLatLng([latitude, longitude])
       updateArrowHeading(heading)
 
       if (!hasCenteredRef.current) {
@@ -145,7 +269,12 @@ export function MapPage() {
         placeName: '地名を取得中...',
       })
 
-      if (lookupKey === lastLookupRef.current.key && now - lastLookupRef.current.at < 5000) {
+      void loadNearbyEvents(latitude, longitude)
+
+      if (
+        lookupKey === lastLookupRef.current.key &&
+        now - lastLookupRef.current.at < 5000
+      ) {
         return
       }
 
@@ -181,22 +310,49 @@ export function MapPage() {
         return
       }
 
+      if (error?.code === error?.TIMEOUT && !hasReceivedPosition) {
+        navigator.geolocation.getCurrentPosition(
+          handlePosition,
+          (fallbackError) => {
+            if (cancelled) {
+              return
+            }
+
+            setLocationInfo((current) => ({
+              ...current,
+              placeName: `位置情報エラー: ${getGeolocationErrorMessage(fallbackError)}`,
+            }))
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: 20000,
+            maximumAge: 60000,
+          },
+        )
+
+        return
+      }
+
       setLocationInfo((current) => ({
         ...current,
-        placeName: `位置情報エラー: ${error.message}`,
+        placeName: `位置情報エラー: ${getGeolocationErrorMessage(error)}`,
       }))
     }
 
     const options = {
       enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 5000,
+      timeout: 20000,
+      maximumAge: 15000,
     }
 
-    navigator.geolocation.getCurrentPosition(handlePosition, handlePositionError, {
-      ...options,
-      maximumAge: 0,
-    })
+    navigator.geolocation.getCurrentPosition(
+      handlePosition,
+      handlePositionError,
+      {
+        ...options,
+        maximumAge: 0,
+      },
+    )
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       handlePosition,
