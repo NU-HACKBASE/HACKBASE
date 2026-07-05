@@ -7,7 +7,7 @@ import { useCurrentUser } from '../hooks/useCurrentUser'
 import { fetchEvents } from '../lib/eventApi'
 
 const DEFAULT_CENTER = { latitude: 35.681236, longitude: 139.767125 }
-const NEARBY_EVENT_RADIUS_METERS = 5000
+const NEARBY_EVENT_RADIUS_METERS = 500
 
 const INITIAL_LOCATION = {
   latitude: null,
@@ -86,10 +86,6 @@ async function reverseGeocode(latitude, longitude) {
   return response.json()
 }
 
-function formatCoordinate(value) {
-  return Number.isFinite(value) ? value.toFixed(6) : '取得中...'
-}
-
 function getGeolocationErrorMessage(error) {
   if (error?.code && GEOLOCATION_ERROR_MESSAGES[error.code]) {
     return GEOLOCATION_ERROR_MESSAGES[error.code]
@@ -138,9 +134,12 @@ export function MapPage() {
   const currentPositionRef = useRef(null)
   const hasCenteredRef = useRef(false)
   const lastLookupRef = useRef({ key: '', at: 0 })
+  const lastEventFetchRef = useRef({ key: '', at: 0 })
   const watchIdRef = useRef(null)
 
   const [locationInfo, setLocationInfo] = useState(getInitialLocation)
+  const [nearbyEvents, setNearbyEvents] = useState([])
+  const [isEventsOpen, setIsEventsOpen] = useState(false)
 
   useEffect(() => {
     if (!isReady || !mapElementRef.current || mapRef.current) {
@@ -272,11 +271,18 @@ export function MapPage() {
     }
 
     const loadNearbyEvents = async (latitude, longitude) => {
+      const lookupKey = `${latitude.toFixed(4)},${longitude.toFixed(4)}`
+      const now = Date.now()
+
+      if (
+        lookupKey === lastEventFetchRef.current.key &&
+        now - lastEventFetchRef.current.at < 1200
+      ) {
+        return
+      }
+
       latestEventRequestId += 1
       const requestId = latestEventRequestId
-
-      eventLayersRef.current.forEach((layer) => layer.remove())
-      eventLayersRef.current = []
 
       try {
         const events = await fetchEvents({ latitude, longitude })
@@ -285,6 +291,8 @@ export function MapPage() {
           return
         }
 
+        lastEventFetchRef.current = { key: lookupKey, at: now }
+        setNearbyEvents(events)
         renderEvents(events, { latitude, longitude })
       } catch (error) {
         console.error(error)
@@ -443,24 +451,71 @@ export function MapPage() {
     return null
   }
 
+  const handleRecenter = () => {
+    const currentPosition = currentPositionRef.current
+
+    if (!currentPosition) {
+      return
+    }
+
+    mapRef.current?.setView(
+      [currentPosition.latitude, currentPosition.longitude],
+      18,
+      {
+        animate: true,
+        duration: 0.8,
+      },
+    )
+  }
+
   return (
     <div className="current-location-map">
       <div className="current-location-map__canvas" ref={mapElementRef} />
       <aside className="info-panel">
         <h1 className="info-title">Current Location</h1>
-        <p className="info-row">
-          <span className="info-label">緯度</span>
-          <span>{formatCoordinate(locationInfo.latitude)}</span>
-        </p>
-        <p className="info-row">
-          <span className="info-label">経度</span>
-          <span>{formatCoordinate(locationInfo.longitude)}</span>
-        </p>
-        <p className="info-row">
-          <span className="info-label">地名</span>
-          <span>{locationInfo.placeName}</span>
-        </p>
+        <p className="info-place">{locationInfo.placeName}</p>
+        <div className="nearby-events">
+          <button
+            aria-expanded={isEventsOpen}
+            className="nearby-events__toggle"
+            onClick={() => setIsEventsOpen((current) => !current)}
+            type="button"
+          >
+            <span className="nearby-events__title">近くのイベント</span>
+            <span className="nearby-events__summary">{nearbyEvents.length}件</span>
+          </button>
+          {isEventsOpen ? (
+            nearbyEvents.length === 0 ? (
+              <p className="nearby-events__empty">近くにイベントはありません</p>
+            ) : (
+              <ul className="nearby-events__list">
+                {nearbyEvents.slice(0, 4).map((event) => (
+                  <li className="nearby-events__item" key={event.id}>
+                    <button
+                      className="nearby-events__button"
+                      onClick={() => navigate(`/${event.id}`)}
+                      type="button"
+                    >
+                      <span className="nearby-events__name">{event.title}</span>
+                      <span className="nearby-events__meta">{event.address}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )
+          ) : null}
+        </div>
       </aside>
+      <button
+        aria-label="現在地を中央に戻す"
+        className="recenter-button"
+        onClick={handleRecenter}
+        type="button"
+      >
+        <span className="recenter-button__icon" aria-hidden="true">
+          <span className="recenter-button__pin" />
+        </span>
+      </button>
     </div>
   )
 }
