@@ -6,7 +6,7 @@ import { useCurrentUser } from '../hooks/useCurrentUser'
 import { fetchEvents } from '../lib/eventApi'
 
 const DEFAULT_CENTER = { latitude: 35.681236, longitude: 139.767125 }
-const NEARBY_EVENT_RADIUS_METERS = 1000
+const NEARBY_EVENT_RADIUS_METERS = 200
 
 const INITIAL_LOCATION = {
   latitude: null,
@@ -110,7 +110,6 @@ export function MapPage() {
   const eventLayersRef = useRef([])
   const hasCenteredRef = useRef(false)
   const lastLookupRef = useRef({ key: '', at: 0 })
-  const lastEventLookupRef = useRef({ key: '', at: 0 })
   const watchIdRef = useRef(null)
 
   const [locationInfo, setLocationInfo] = useState(getInitialLocation)
@@ -173,6 +172,7 @@ export function MapPage() {
 
     let cancelled = false
     let hasReceivedPosition = false
+    let latestEventRequestId = 0
 
     const renderEvents = (events) => {
       eventLayersRef.current.forEach((layer) => layer.remove())
@@ -204,24 +204,19 @@ export function MapPage() {
     }
 
     const loadNearbyEvents = async (latitude, longitude) => {
-      const lookupKey = `${latitude.toFixed(3)},${longitude.toFixed(3)}`
-      const now = Date.now()
+      latestEventRequestId += 1
+      const requestId = latestEventRequestId
 
-      if (
-        lookupKey === lastEventLookupRef.current.key &&
-        now - lastEventLookupRef.current.at < 5000
-      ) {
-        return
-      }
+      eventLayersRef.current.forEach((layer) => layer.remove())
+      eventLayersRef.current = []
 
       try {
         const events = await fetchEvents({ latitude, longitude })
 
-        if (cancelled) {
+        if (cancelled || requestId !== latestEventRequestId) {
           return
         }
 
-        lastEventLookupRef.current = { key: lookupKey, at: now }
         renderEvents(events)
       } catch (error) {
         console.error(error)

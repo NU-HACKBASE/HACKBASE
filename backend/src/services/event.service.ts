@@ -3,7 +3,7 @@ import type { AuthSession } from '../types/api.js'
 import { ApiError } from '../utils/api-error.js'
 import type { AuthService } from './auth.service.js'
 
-const NEARBY_EVENT_RADIUS_METERS = 1000
+const NEARBY_EVENT_RADIUS_METERS = 200
 
 export class EventService {
   constructor(
