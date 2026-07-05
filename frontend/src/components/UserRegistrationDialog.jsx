@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState } from 'react'
 
 export function UserRegistrationDialog({
   error,
@@ -6,31 +6,31 @@ export function UserRegistrationDialog({
   onSubmit,
   open,
 }) {
-  const [userName, setUserName] = useState("");
-  const [validationError, setValidationError] = useState("");
+  const [userName, setUserName] = useState('')
+  const [validationError, setValidationError] = useState('')
 
   if (!open) {
-    return null;
+    return null
   }
 
   const handleSubmit = async (event) => {
-    event.preventDefault();
+    event.preventDefault()
 
-    const trimmedUserName = userName.trim();
+    const trimmedUserName = userName.trim()
 
     if (!trimmedUserName) {
-      setValidationError("ユーザー名を入力してください");
-      return;
+      setValidationError('ユーザー名を入力してください')
+      return
     }
 
-    setValidationError("");
+    setValidationError('')
 
     try {
-      await onSubmit({ userName: trimmedUserName });
+      await onSubmit({ userName: trimmedUserName })
     } catch {
       // The provider owns the user-facing error message.
     }
-  };
+  }
 
   return (
     <div className="fixed inset-0 z-[2000] grid place-items-center bg-slate-950/80 px-4 backdrop-blur-sm">
@@ -78,10 +78,10 @@ export function UserRegistrationDialog({
             disabled={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "登録中..." : "はじめる"}
+            {isSubmitting ? '登録中...' : 'はじめる'}
           </button>
         </form>
       </section>
     </div>
-  );
+  )
 }

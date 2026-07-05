@@ -1,8 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 
 const adminNavItems = [
-  { to: '/admin', label: 'ダッシュボード', end: true },
-  { to: '/admin/events/new', label: 'イベント作成' },
+  { to: '/admin', label: '管理画面', end: true },
   { to: '/map', label: 'ユーザー画面' },
 ]
 

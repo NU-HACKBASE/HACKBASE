@@ -30,6 +30,13 @@ import { UserService } from './services/user.service.js'
 import { ApiError, errorBody } from './utils/api-error.js'
 
 const openApiPath = fileURLToPath(new URL('../../openapi/openapi.yaml', import.meta.url))
+const allowedCorsOrigins = new Set([
+  ...env.corsOrigin.split(',').map((origin) => origin.trim()).filter(Boolean),
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+])
 
 export const createApp = () => {
   const app = new Hono()
@@ -39,7 +46,9 @@ export const createApp = () => {
   app.use(
     '*',
     cors({
-      origin: env.corsOrigin,
+      allowHeaders: ['Authorization', 'Content-Type', 'X-User-Id'],
+      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      origin: (origin) => (allowedCorsOrigins.has(origin) ? origin : null),
     }),
   )
 

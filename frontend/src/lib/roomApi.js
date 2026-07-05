@@ -4,6 +4,7 @@ import { normalizeChats } from './chatApi'
 export async function fetchEventRooms(eventId, options = {}) {
   const data = await apiRequest(`/events/${eventId}/rooms`, {
     signal: options.signal,
+    token: options.token,
   })
 
   return normalizeRooms(data)
@@ -14,6 +15,7 @@ export async function createRoom(eventId, input, options = {}) {
     body: normalizeRoomInput(input),
     method: 'POST',
     signal: options.signal,
+    token: options.token,
   })
 
   return normalizeRoom(data)
@@ -22,6 +24,7 @@ export async function createRoom(eventId, input, options = {}) {
 export async function fetchRoom(roomId, options = {}) {
   const data = await apiRequest(`/rooms/${roomId}`, {
     signal: options.signal,
+    token: options.token,
   })
 
   return normalizeRoom(data)
@@ -32,6 +35,7 @@ export async function updateRoom(roomId, input, options = {}) {
     body: normalizeRoomInput(input),
     method: 'PATCH',
     signal: options.signal,
+    token: options.token,
   })
 
   return normalizeRoom(data)
@@ -41,6 +45,7 @@ export async function deleteRoom(roomId, options = {}) {
   await apiRequest(`/rooms/${roomId}`, {
     method: 'DELETE',
     signal: options.signal,
+    token: options.token,
   })
 }
 
@@ -48,6 +53,7 @@ export async function analyzeRoom(roomId, options = {}) {
   const data = await apiRequest(`/rooms/${roomId}/analyze`, {
     method: 'POST',
     signal: options.signal,
+    token: options.token,
   })
 
   return {

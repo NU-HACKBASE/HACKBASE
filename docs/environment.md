@@ -18,7 +18,8 @@ cp .env.example .env
 | `ADMIN_PASSWORD` | Backend | `admin` | Local admin login password |
 | `SUPABASE_URL` | Backend | `https://<project-ref>.supabase.co` | Supabase project URL |
 | `SUPABASE_PUBLISHABLE_KEY` | Backend | `sb_publishable_...` | Supabase publishable key |
-| `SUPABASE_SECRET_KEY` | Backend | `sb_secret_...` | Supabase secret key for server-side access |
+| `SUPABASE_SERVICE_ROLE_KEY` | Backend | `eyJ...service_role...` | Supabase service role key for server-side access |
+| `SUPABASE_SECRET_KEY` | Backend | `eyJ...service_role...` | Backward-compatible fallback for `SUPABASE_SERVICE_ROLE_KEY` |
 | `SUPABASE_JWKS_URL` | Backend | `https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json` | JWKS endpoint for JWT verification |
 | `SUPABASE_DB_URL` | Migration | `postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres?sslmode=require` | Direct Postgres URL used only for schema migrations |
 | `VITE_API_BASE_URL` | Frontend | `http://localhost:8787` | REST API base URL |
@@ -30,7 +31,7 @@ cp .env.example .env
 - frontend で使う環境変数は `VITE_` prefix が必要
 - backend は `backend/src/config/env.ts` で読み込む
 - frontend は `frontend/src/lib/config.js` で読み込む
-- `SUPABASE_SECRET_KEY` は backend のみに置き、frontend に公開しない
+- `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_SECRET_KEY` は backend のみに置き、frontend に公開しない
 
 ## Supabase
 
@@ -39,7 +40,8 @@ cp .env.example .env
 ```env
 SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
-SUPABASE_SECRET_KEY=sb_secret_...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...service_role...
+SUPABASE_SECRET_KEY=eyJ...service_role...
 SUPABASE_JWKS_URL=https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json
 SUPABASE_DB_URL=postgresql://postgres:<database-password>@db.<project-ref>.supabase.co:5432/postgres?sslmode=require
 ```
@@ -50,6 +52,7 @@ SUPABASE_DB_URL=postgresql://postgres:<database-password>@db.<project-ref>.supab
 - `CORS_ORIGIN`
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_SECRET_KEY`
 - `SUPABASE_JWKS_URL`
 - `SUPABASE_DB_URL`
@@ -58,4 +61,4 @@ SUPABASE_DB_URL=postgresql://postgres:<database-password>@db.<project-ref>.supab
 - `VITE_API_BASE_URL`
 - `VITE_WS_URL`
 
-本番では `SUPABASE_SECRET_KEY` と `SUPABASE_DB_URL` に秘密情報が含まれるため、GitHub Secrets やホスティングサービスの環境変数管理に置きます。
+本番では `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_SECRET_KEY` と `SUPABASE_DB_URL` に秘密情報が含まれるため、GitHub Secrets やホスティングサービスの環境変数管理に置きます。
