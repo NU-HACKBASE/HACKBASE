@@ -11,8 +11,8 @@ React/Vite frontend and Hono/TypeScript backend foundation for hackathon-speed w
 - [WebSocket Guide](./docs/websocket.md)
 - [Environment Variables](./docs/environment.md)
 - [Supabase](./docs/supabase.md)
+- [Fly.io Deploy](./docs/deploy-fly.md)
 - [Agent Guide](./docs/agent-guide.md)
-- [Next Steps](./docs/next-steps.md)
 
 AI coding agents should also read [AGENTS.md](./AGENTS.md).
 
@@ -82,6 +82,7 @@ make lint          # backend typecheck and frontend eslint
 make test          # run backend unit tests
 make openapi-check # validate required OpenAPI shape
 make smoke-api     # run API smoke test against the running backend
+make fly-deploy    # deploy backend to Fly.io from local machine
 make down          # stop containers
 make clean         # stop containers and remove volumes
 ```
