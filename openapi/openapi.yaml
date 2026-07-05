@@ -98,6 +98,19 @@ paths:
       operationId: listEvents
       tags: [Events]
       summary: List events
+      parameters:
+        - name: latitude
+          in: query
+          description: Current latitude used to search nearby events
+          schema:
+            type: number
+            format: double
+        - name: longitude
+          in: query
+          description: Current longitude used to search nearby events
+          schema:
+            type: number
+            format: double
       responses:
         "200":
           description: Event list

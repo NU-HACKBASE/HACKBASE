@@ -3,34 +3,20 @@ import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef, useState } from 'react'
 
 import { useCurrentUser } from '../hooks/useCurrentUser'
+import { fetchEvents } from '../lib/eventApi'
 
 const DEFAULT_CENTER = { latitude: 35.681236, longitude: 139.767125 }
-
-const EVENTS = [
-  {
-    id: 'matsubara-high-school',
-    title: '松原高校イベント',
-    place: '東京都立松原高等学校',
-    latitude: 35.665096,
-    longitude: 139.635306,
-    heat: 88,
-    radius: 120,
-  },
-  {
-    id: 'midorigaoka-junior-high-school',
-    title: '緑丘中学校イベント',
-    place: '世田谷区立緑丘中学校',
-    latitude: 35.661546,
-    longitude: 139.631289,
-    heat: 64,
-    radius: 300,
-  },
-]
 
 const INITIAL_LOCATION = {
   latitude: null,
   longitude: null,
   placeName: '取得中...',
+}
+
+const GEOLOCATION_ERROR_MESSAGES = {
+  1: '位置情報の利用が許可されていません',
+  2: '位置情報を取得できませんでした',
+  3: '位置情報の取得がタイムアウトしました',
 }
 
 function getInitialLocation() {
@@ -102,6 +88,18 @@ function formatCoordinate(value) {
   return Number.isFinite(value) ? value.toFixed(6) : '取得中...'
 }
 
+function getGeolocationErrorMessage(error) {
+  if (error?.code && GEOLOCATION_ERROR_MESSAGES[error.code]) {
+    return GEOLOCATION_ERROR_MESSAGES[error.code]
+  }
+
+  if (error?.message) {
+    return error.message
+  }
+
+  return '位置情報を取得できませんでした'
+}
+
 export function MapPage() {
   const { isReady } = useCurrentUser()
   const mapElementRef = useRef(null)
@@ -110,6 +108,7 @@ export function MapPage() {
   const eventLayersRef = useRef([])
   const hasCenteredRef = useRef(false)
   const lastLookupRef = useRef({ key: '', at: 0 })
+  const lastEventLookupRef = useRef({ key: '', at: 0 })
   const watchIdRef = useRef(null)
 
   const [locationInfo, setLocationInfo] = useState(getInitialLocation)
@@ -136,30 +135,8 @@ export function MapPage() {
       },
     ).addTo(map)
 
-    const eventLayers = EVENTS.flatMap((event) => {
-      const color = getEventColor(event.heat)
-      const circle = L.circle([event.latitude, event.longitude], {
-        radius: event.radius,
-        color,
-        weight: 2,
-        fillColor: color,
-        fillOpacity: 0.14,
-      }).addTo(map)
-
-      const eventMarker = L.marker([event.latitude, event.longitude], {
-        icon: createEventIcon(event),
-      })
-        .bindPopup(
-          `<strong>${event.title}</strong><br>${event.place}<br>盛り上がり度: ${event.heat}<br>半径: ${event.radius}m`,
-        )
-        .addTo(map)
-
-      return [circle, eventMarker]
-    })
-
     mapRef.current = map
     markerRef.current = marker
-    eventLayersRef.current = eventLayers
 
     return () => {
       eventLayersRef.current.forEach((layer) => layer.remove())
@@ -180,6 +157,61 @@ export function MapPage() {
     }
 
     let cancelled = false
+    let hasReceivedPosition = false
+
+    const renderEvents = (events) => {
+      eventLayersRef.current.forEach((layer) => layer.remove())
+
+      eventLayersRef.current = events.flatMap((event) => {
+        if (!Number.isFinite(event.latitude) || !Number.isFinite(event.longitude)) {
+          return []
+        }
+
+        const color = getEventColor(event.heat)
+        const circle = L.circle([event.latitude, event.longitude], {
+          radius: event.radius,
+          color,
+          weight: 2,
+          fillColor: color,
+          fillOpacity: 0.14,
+        }).addTo(mapRef.current)
+
+        const eventMarker = L.marker([event.latitude, event.longitude], {
+          icon: createEventIcon(event),
+        })
+          .bindPopup(
+            `<strong>${event.title}</strong><br>${event.address}<br>盛り上がり度: ${event.heat}<br>半径: ${event.radius}m`,
+          )
+          .addTo(mapRef.current)
+
+        return [circle, eventMarker]
+      })
+    }
+
+    const loadNearbyEvents = async (latitude, longitude) => {
+      const lookupKey = `${latitude.toFixed(3)},${longitude.toFixed(3)}`
+      const now = Date.now()
+
+      if (
+        lookupKey === lastEventLookupRef.current.key &&
+        now - lastEventLookupRef.current.at < 5000
+      ) {
+        return
+      }
+
+      try {
+        const events = await fetchEvents({ latitude, longitude })
+
+        if (cancelled) {
+          return
+        }
+
+        lastEventLookupRef.current = { key: lookupKey, at: now }
+        renderEvents(events)
+      } catch (error) {
+        console.error(error)
+      }
+    }
 
     const updateArrowHeading = (heading) => {
       const arrow = markerRef.current
@@ -198,6 +230,8 @@ export function MapPage() {
       if (cancelled) {
         return
       }
+
+      hasReceivedPosition = true
 
       const latitude = position.coords.latitude
       const longitude = position.coords.longitude
@@ -223,6 +257,8 @@ export function MapPage() {
         longitude,
         placeName: '地名を取得中...',
       })
+
+      void loadNearbyEvents(latitude, longitude)
 
       if (
         lookupKey === lastLookupRef.current.key &&
@@ -263,16 +299,39 @@ export function MapPage() {
         return
       }
 
+      if (error?.code === error?.TIMEOUT && !hasReceivedPosition) {
+        navigator.geolocation.getCurrentPosition(
+          handlePosition,
+          (fallbackError) => {
+            if (cancelled) {
+              return
+            }
+
+            setLocationInfo((current) => ({
+              ...current,
+              placeName: `位置情報エラー: ${getGeolocationErrorMessage(fallbackError)}`,
+            }))
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: 20000,
+            maximumAge: 60000,
+          },
+        )
+
+        return
+      }
+
       setLocationInfo((current) => ({
         ...current,
-        placeName: `位置情報エラー: ${error.message}`,
+        placeName: `位置情報エラー: ${getGeolocationErrorMessage(error)}`,
       }))
     }
 
     const options = {
       enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 5000,
+      timeout: 20000,
+      maximumAge: 15000,
     }
 
     navigator.geolocation.getCurrentPosition(
