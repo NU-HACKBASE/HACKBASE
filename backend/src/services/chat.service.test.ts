@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import type { ChatRepository } from '../repositories/chat.repository.js'
 import type { RoomRepository } from '../repositories/room.repository.js'
+import { WebSocketHub, type HubMessage } from '../ws/hub.js'
 import { ChatService } from './chat.service.js'
 
 const userSession = { userId: 'user-1', role: 'anonymous' as const }
@@ -33,6 +34,14 @@ const chat = {
 
 function createService(options: { roomExists?: boolean } = {}) {
   const calls: { createInput?: unknown; deleteChatId?: string; listLimit?: number } = {}
+  const broadcasts: HubMessage[] = []
+  const hub = new WebSocketHub()
+  const originalBroadcast = hub.broadcastToRoom.bind(hub)
+
+  hub.broadcastToRoom = (roomId, message) => {
+    broadcasts.push(message)
+    originalBroadcast(roomId, message)
+  }
   const roomRepository = {
     findById: async () => (options.roomExists === false ? null : room),
   } satisfies Partial<RoomRepository>
@@ -64,9 +73,10 @@ function createService(options: { roomExists?: boolean } = {}) {
   const service = new ChatService(
     roomRepository as unknown as RoomRepository,
     chatRepository as unknown as ChatRepository,
+    hub,
   )
 
-  return { calls, service }
+  return { broadcasts, calls, hub, service }
 }
 
 test('ChatService creates a chat in an existing room and trims body', async () => {
@@ -142,4 +152,13 @@ test('ChatService clamps chat list limit to 100', async () => {
   await service.listChats('room-1', 1000)
 
   assert.equal(calls.listLimit, 100)
+})
+
+test('ChatService broadcasts chat.created after creating a chat', async () => {
+  const { broadcasts, service } = createService()
+
+  await service.createChat(userSession, 'room-1', { body: 'hello' })
+
+  assert.equal(broadcasts.length, 1)
+  assert.equal(broadcasts[0]?.type, 'chat.created')
 })
