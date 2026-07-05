@@ -23,7 +23,13 @@ function createService() {
     managerId: 'admin',
     createdAt: '2026-07-04T00:00:00.000Z',
   }
-  const calls: { createInput?: unknown; updateInput?: unknown; deletedEventId?: string; joinInput?: unknown } = {}
+  const calls: {
+    createInput?: unknown
+    listInput?: unknown
+    updateInput?: unknown
+    deletedEventId?: string
+    joinInput?: unknown
+  } = {}
   const eventRepository = {
     create: async (input) => {
       calls.createInput = input
@@ -42,7 +48,11 @@ function createService() {
         createdAt: '2026-07-04T00:00:00.000Z',
       }
     },
-    list: async () => [],
+    list: async (input) => {
+      calls.listInput = input
+
+      return []
+    },
     findById: async (eventId) => (eventId === 'event-1' ? event : null),
     update: async (eventId, input) => {
       calls.updateInput = { eventId, ...input }
@@ -125,6 +135,52 @@ test('EventService rejects blank event titles', async () => {
     () =>
       service.createEvent(adminSession, {
         title: '   ',
+      }),
+    {
+      status: 400,
+      code: 'VALIDATION_ERROR',
+    },
+  )
+})
+
+test('EventService lists events filtered by coordinates', async () => {
+  const { calls, service } = createService()
+
+  await service.listEvents({
+    latitude: 35.68,
+    longitude: 139.76,
+  })
+
+  assert.deepEqual(calls.listInput, {
+    latitude: 35.68,
+    longitude: 139.76,
+    nearbyRadiusMeters: 1000,
+  })
+})
+
+test('EventService rejects incomplete event location query', async () => {
+  const { service } = createService()
+
+  await assert.rejects(
+    () =>
+      service.listEvents({
+        latitude: 35.68,
+      }),
+    {
+      status: 400,
+      code: 'VALIDATION_ERROR',
+    },
+  )
+})
+
+test('EventService rejects invalid event location query values', async () => {
+  const { service } = createService()
+
+  await assert.rejects(
+    () =>
+      service.listEvents({
+        latitude: Number.NaN,
+        longitude: 139.76,
       }),
     {
       status: 400,

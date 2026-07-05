@@ -19,6 +19,18 @@ export async function fetchEvent(eventId, options = {}) {
   return normalizeEvent(data)
 }
 
+export async function joinEvent(eventId, options = {}) {
+  const data = await apiRequest(`/events/${eventId}/join`, {
+    method: 'POST',
+    signal: options.signal,
+  })
+
+  return {
+    event: normalizeEvent(data?.event),
+    participant: normalizeParticipant(data?.participant),
+  }
+}
+
 function normalizeEvents(data) {
   const items = data?.events ?? data?.items ?? data?.data ?? data
 
@@ -45,5 +57,19 @@ function normalizeEvent(data) {
     participants: source.participants ?? source.participantCount ?? 0,
     startsAt: source.startsAt ?? source.startTime ?? null,
     raw: source,
+  }
+}
+
+function normalizeParticipant(data) {
+  if (!data) {
+    return null
+  }
+
+  return {
+    userId: data.userId ?? data.id ?? null,
+    userName: data.userName ?? data.name ?? '',
+    role: data.role ?? '',
+    joinedAt: data.joinedAt ?? null,
+    raw: data,
   }
 }

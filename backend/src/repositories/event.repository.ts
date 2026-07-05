@@ -74,12 +74,77 @@ export class EventRepository {
     return this.mapEventWithStats(data)
   }
 
-  async list(): Promise<EventRecord[]> {
-    const { data, error } = await this.db
-      .from('events')
-      .select(eventSelect)
-      .order('created_at', { ascending: false })
-      .returns<EventRow[]>()
+  async list(input?: {
+    latitude?: number
+    longitude?: number
+    nearbyRadiusMeters?: number
+  }): Promise<EventRecord[]> {
+    const hasCoordinates =
+      input?.latitude !== undefined &&
+      input?.longitude !== undefined &&
+      input?.nearbyRadiusMeters !== undefined
+    const params = hasCoordinates
+      ? [input.latitude, input.longitude, input.nearbyRadiusMeters]
+      : []
+    const whereClause = hasCoordinates
+      ? `
+        where
+          e.latitude is not null
+          and e.longitude is not null
+          and (
+            6371000 * acos(
+              least(
+                1,
+                greatest(
+                  -1,
+                  cos(radians($1)) * cos(radians(e.latitude)) *
+                  cos(radians(e.longitude) - radians($2)) +
+                  sin(radians($1)) * sin(radians(e.latitude))
+                )
+              )
+            )
+          ) <= $3
+      `
+      : ''
+    const orderByClause = hasCoordinates
+      ? `
+        order by
+          (
+            6371000 * acos(
+              least(
+                1,
+                greatest(
+                  -1,
+                  cos(radians($1)) * cos(radians(e.latitude)) *
+                  cos(radians(e.longitude) - radians($2)) +
+                  sin(radians($1)) * sin(radians(e.latitude))
+                )
+              )
+            )
+          ) asc,
+          e.created_at desc
+      `
+      : 'order by e.created_at desc'
+    const result = await this.db.query<EventRow>(`
+      select
+        e.id,
+        e.title,
+        e.address,
+        e.latitude,
+        e.longitude,
+        e.radius,
+        e.manager_id,
+        e.starts_at,
+        e.created_at,
+        coalesce(avg(r.heat), 0)::int as heat,
+        count(distinct c.user_id)::int as participants
+      from events e
+      left join rooms r on r.event_id = e.id
+      left join chats c on c.event_id = e.id and c.deleted_at is null
+      ${whereClause}
+      group by e.id
+      ${orderByClause}
+    `, params)
 
     throwIfSupabaseError(error)
 

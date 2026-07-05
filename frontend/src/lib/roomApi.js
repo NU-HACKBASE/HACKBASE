@@ -1,4 +1,5 @@
 import { apiRequest } from './apiClient'
+import { normalizeChats } from './chatApi'
 
 export async function fetchEventRooms(eventId, options = {}) {
   const data = await apiRequest(`/events/${eventId}/rooms`, {
@@ -6,6 +7,16 @@ export async function fetchEventRooms(eventId, options = {}) {
   })
 
   return normalizeRooms(data)
+}
+
+export async function createRoom(eventId, input, options = {}) {
+  const data = await apiRequest(`/events/${eventId}/rooms`, {
+    body: normalizeRoomInput(input),
+    method: 'POST',
+    signal: options.signal,
+  })
+
+  return normalizeRoom(data)
 }
 
 export async function fetchRoom(roomId, options = {}) {
@@ -16,13 +27,33 @@ export async function fetchRoom(roomId, options = {}) {
   return normalizeRoom(data)
 }
 
-export async function fetchRoomChats(roomId, params = {}, options = {}) {
-  const data = await apiRequest(`/rooms/${roomId}/chats`, {
-    query: params,
+export async function updateRoom(roomId, input, options = {}) {
+  const data = await apiRequest(`/rooms/${roomId}`, {
+    body: normalizeRoomInput(input),
+    method: 'PATCH',
     signal: options.signal,
   })
 
-  return normalizeChats(data)
+  return normalizeRoom(data)
+}
+
+export async function deleteRoom(roomId, options = {}) {
+  await apiRequest(`/rooms/${roomId}`, {
+    method: 'DELETE',
+    signal: options.signal,
+  })
+}
+
+export async function analyzeRoom(roomId, options = {}) {
+  const data = await apiRequest(`/rooms/${roomId}/analyze`, {
+    method: 'POST',
+    signal: options.signal,
+  })
+
+  return {
+    room: normalizeRoom(data?.room),
+    analysis: data?.analysis ?? null,
+  }
 }
 
 function normalizeRooms(data) {
@@ -38,7 +69,7 @@ function normalizeRooms(data) {
 function normalizeRoom(data) {
   const source = data?.room ?? data
   const id = source.roomId ?? source.id
-  const chats = source.chats ?? source.latestChats ?? source.messages ?? []
+  const chats = data?.chats ?? source.chats ?? source.latestChats ?? source.messages ?? []
 
   return {
     id,
@@ -53,30 +84,9 @@ function normalizeRoom(data) {
   }
 }
 
-function normalizeChats(data) {
-  const items = data?.chats ?? data?.items ?? data?.data ?? data
-
-  if (!Array.isArray(items)) {
-    return []
-  }
-
-  return items.map(normalizeChat)
-}
-
-function normalizeChat(data) {
-  const source = data?.chat ?? data
-  const id = source.chatId ?? source.id
-
+function normalizeRoomInput(input = {}) {
   return {
-    id,
-    chatId: id,
-    eventId: source.eventId ?? null,
-    roomId: source.roomId ?? null,
-    userId: source.userId ?? null,
-    userName: source.userName ?? source.name ?? source.user?.userName ?? '',
-    body: source.chatText ?? source.text ?? source.body ?? source.message ?? '',
-    likedCount: source.likedCount ?? source.likes ?? source.likeCount ?? 0,
-    createdAt: source.timestamp ?? source.createdAt ?? null,
-    raw: source,
+    title: input.title,
+    summary: input.summary,
   }
 }
