@@ -56,6 +56,7 @@ docker compose up -d --build
 
 ```bash
 make lint
+make test
 make build
 make openapi-check
 make docker-up

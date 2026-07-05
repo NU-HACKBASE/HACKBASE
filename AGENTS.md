@@ -82,6 +82,7 @@ make dev-infra
 make dev-backend
 make dev-frontend
 make lint
+make test
 make build
 make openapi-check
 ```
@@ -91,6 +92,7 @@ make openapi-check
 コードを変更したら、変更内容に応じて実行してください。
 
 - backend を変更した場合: `npm --prefix backend run lint`
+- service や認証を変更した場合: `npm --prefix backend run test`
 - frontend を変更した場合: `npm --prefix frontend run lint`
 - OpenAPI を変更した場合: `make openapi-check`
 - 全体を確認する場合: `make lint && make build && make openapi-check`

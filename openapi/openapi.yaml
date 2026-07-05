@@ -1,20 +1,23 @@
 openapi: 3.1.0
 info:
   title: HACKBASE API
-  version: 0.1.0
+  version: 0.2.0
   description: OpenAPI first contract for the HACKBASE backend.
 servers:
   - url: http://localhost:8787
     description: Local backend
 tags:
   - name: System
-    description: Operational endpoints
+  - name: Users
+  - name: Admin
+  - name: Events
+  - name: Rooms
+  - name: Chats
 paths:
   /health:
     get:
       operationId: getHealth
-      tags:
-        - System
+      tags: [System]
       summary: Check API, database, and cache health
       responses:
         "200":
@@ -29,41 +32,650 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+  /api/v1/users:
+    post:
+      operationId: createUser
+      tags: [Users]
+      summary: Create anonymous user and token
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userName:
+                  type: string
+      responses:
+        "201":
+          description: Anonymous user created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /api/v1/users/me:
+    get:
+      operationId: getMe
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+  /api/v1/admin/login:
+    post:
+      operationId: loginAdmin
+      tags: [Admin]
+      summary: Login admin user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userName:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Admin token issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /api/v1/events:
+    get:
+      operationId: listEvents
+      tags: [Events]
+      summary: List events
+      responses:
+        "200":
+          description: Event list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Event"
+    post:
+      operationId: createEvent
+      tags: [Events]
+      security:
+        - bearerAuth: []
+      summary: Create event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventCreateInput"
+      responses:
+        "201":
+          description: Event created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  event:
+                    $ref: "#/components/schemas/Event"
+  /api/v1/events/{eventId}:
+    get:
+      operationId: getEvent
+      tags: [Events]
+      summary: Get event
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      responses:
+        "200":
+          description: Event
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  event:
+                    $ref: "#/components/schemas/Event"
+    patch:
+      operationId: updateEvent
+      tags: [Events]
+      security:
+        - bearerAuth: []
+      summary: Update event
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventUpdateInput"
+      responses:
+        "200":
+          description: Event updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  event:
+                    $ref: "#/components/schemas/Event"
+    delete:
+      operationId: deleteEvent
+      tags: [Events]
+      security:
+        - bearerAuth: []
+      summary: Delete event
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      responses:
+        "204":
+          description: Event deleted
+  /api/v1/events/{eventId}/join:
+    post:
+      operationId: joinEvent
+      tags: [Events]
+      security:
+        - bearerAuth: []
+      summary: Join event
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      responses:
+        "200":
+          description: Event joined
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  event:
+                    $ref: "#/components/schemas/Event"
+                  participant:
+                    $ref: "#/components/schemas/Participant"
+  /api/v1/events/{eventId}/participants:
+    get:
+      operationId: listEventParticipants
+      tags: [Events]
+      security:
+        - bearerAuth: []
+      summary: List event participants
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      responses:
+        "200":
+          description: Participants
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  participants:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Participant"
+  /api/v1/events/{eventId}/rooms:
+    get:
+      operationId: listRooms
+      tags: [Rooms]
+      summary: List rooms in event
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      responses:
+        "200":
+          description: Room list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rooms:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Room"
+    post:
+      operationId: createRoom
+      tags: [Rooms]
+      security:
+        - bearerAuth: []
+      summary: Create room
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomCreateInput"
+      responses:
+        "201":
+          description: Room created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room:
+                    $ref: "#/components/schemas/Room"
+  /api/v1/rooms/{roomId}:
+    get:
+      operationId: getRoom
+      tags: [Rooms]
+      summary: Get room with latest chats
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: Room
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room:
+                    $ref: "#/components/schemas/Room"
+                  chats:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Chat"
+    patch:
+      operationId: updateRoom
+      tags: [Rooms]
+      security:
+        - bearerAuth: []
+      summary: Update room
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomUpdateInput"
+      responses:
+        "200":
+          description: Room updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room:
+                    $ref: "#/components/schemas/Room"
+    delete:
+      operationId: deleteRoom
+      tags: [Rooms]
+      security:
+        - bearerAuth: []
+      summary: Delete room
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "204":
+          description: Room deleted
+  /api/v1/rooms/{roomId}/analyze:
+    post:
+      operationId: analyzeRoom
+      tags: [Rooms]
+      security:
+        - bearerAuth: []
+      summary: Generate room heat and summary
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room:
+                    $ref: "#/components/schemas/Room"
+                  analysis:
+                    type: object
+  /api/v1/rooms/{roomId}/chats:
+    get:
+      operationId: listChats
+      tags: [Chats]
+      summary: List room chats
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Chat list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chats:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Chat"
+    post:
+      operationId: createChat
+      tags: [Chats]
+      security:
+        - bearerAuth: []
+      summary: Create chat
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatInput"
+      responses:
+        "201":
+          description: Chat created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chat:
+                    $ref: "#/components/schemas/Chat"
+  /api/v1/chats/{chatId}:
+    patch:
+      operationId: updateChat
+      tags: [Chats]
+      security:
+        - bearerAuth: []
+      summary: Update chat
+      parameters:
+        - $ref: "#/components/parameters/ChatId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatInput"
+      responses:
+        "200":
+          description: Chat updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chat:
+                    $ref: "#/components/schemas/Chat"
+    delete:
+      operationId: deleteChat
+      tags: [Chats]
+      security:
+        - bearerAuth: []
+      summary: Delete chat
+      parameters:
+        - $ref: "#/components/parameters/ChatId"
+      responses:
+        "204":
+          description: Chat deleted
+  /api/v1/chats/{chatId}/like:
+    put:
+      operationId: likeChat
+      tags: [Chats]
+      security:
+        - bearerAuth: []
+      summary: Like chat
+      parameters:
+        - $ref: "#/components/parameters/ChatId"
+      responses:
+        "200":
+          description: Chat with like count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chat:
+                    $ref: "#/components/schemas/Chat"
+    delete:
+      operationId: unlikeChat
+      tags: [Chats]
+      security:
+        - bearerAuth: []
+      summary: Unlike chat
+      parameters:
+        - $ref: "#/components/parameters/ChatId"
+      responses:
+        "200":
+          description: Chat with like count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chat:
+                    $ref: "#/components/schemas/Chat"
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      schema:
+        type: string
+    RoomId:
+      name: roomId
+      in: path
+      required: true
+      schema:
+        type: string
+    ChatId:
+      name: chatId
+      in: path
+      required: true
+      schema:
+        type: string
   schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
     HealthResponse:
       type: object
-      required:
-        - status
-        - services
-        - timestamp
+      required: [status, services, timestamp]
       properties:
         status:
           type: string
-          enum:
-            - ok
-            - degraded
+          enum: [ok, degraded]
         timestamp:
           type: string
           format: date-time
         services:
           type: object
-          required:
-            - api
-            - database
-            - cache
           properties:
             api:
               type: string
-              enum:
-                - ok
+              enum: [ok]
             database:
               type: string
-              enum:
-                - ok
-                - error
+              enum: [ok, error]
             cache:
               type: string
-              enum:
-                - ok
-                - error
+              enum: [ok, error]
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+    User:
+      type: object
+      properties:
+        userId:
+          type: string
+        userName:
+          type: string
+        role:
+          type: string
+          enum: [anonymous, admin]
+        createdAt:
+          type: string
+          format: date-time
+    EventCreateInput:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        address:
+          type: string
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        radius:
+          type: integer
+        startsAt:
+          type: string
+          format: date-time
+          nullable: true
+    EventUpdateInput:
+      type: object
+      properties:
+        title:
+          type: string
+        address:
+          type: string
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        radius:
+          type: integer
+        startsAt:
+          type: string
+          format: date-time
+          nullable: true
+    Event:
+      allOf:
+        - $ref: "#/components/schemas/EventCreateInput"
+        - type: object
+          properties:
+            eventId:
+              type: string
+            heat:
+              type: integer
+            participants:
+              type: integer
+            managerId:
+              type: string
+              nullable: true
+            createdAt:
+              type: string
+              format: date-time
+    RoomCreateInput:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        summary:
+          type: string
+    RoomUpdateInput:
+      type: object
+      properties:
+        title:
+          type: string
+        summary:
+          type: string
+    Room:
+      allOf:
+        - $ref: "#/components/schemas/RoomCreateInput"
+        - type: object
+          properties:
+            roomId:
+              type: string
+            eventId:
+              type: string
+            heat:
+              type: integer
+            participants:
+              type: integer
+            createdAt:
+              type: string
+              format: date-time
+    ChatInput:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+    Chat:
+      type: object
+      properties:
+        chatId:
+          type: string
+        eventId:
+          type: string
+        roomId:
+          type: string
+        userId:
+          type: string
+        userName:
+          type: string
+        body:
+          type: string
+        likedCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    Participant:
+      type: object
+      properties:
+        userId:
+          type: string
+        userName:
+          type: string
+        role:
+          type: string
+        joinedAt:
+          type: string
+          format: date-time
+        chatCount:
+          type: integer
+        lastActiveAt:
+          type: string
+          format: date-time
+          nullable: true

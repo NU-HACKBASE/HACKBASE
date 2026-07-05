@@ -1,8 +1,56 @@
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
-import { sampleEvents } from '../lib/sampleData'
+import { fetchEvents } from "../lib/eventApi";
 
 export function EventSearchPage() {
+  const [events, setEvents] = useState([]);
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("loading");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadEvents = async () => {
+      setStatus("loading");
+      setError("");
+
+      try {
+        const nextEvents = await fetchEvents({}, { signal: controller.signal });
+        setEvents(nextEvents);
+        setStatus("ready");
+      } catch (loadError) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setError(loadError.message);
+        setStatus("error");
+      }
+    };
+
+    loadEvents();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
+
+  const visibleEvents = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return events;
+    }
+
+    return events.filter((event) =>
+      [event.title, event.address].some((value) =>
+        value.toLowerCase().includes(normalizedQuery),
+      ),
+    );
+  }, [events, query]);
+
   return (
     <>
       <style>{`
@@ -98,15 +146,38 @@ export function EventSearchPage() {
             <h1 className="text-5xl font-black tracking-tight">イベント一覧</h1>
             <input
               className="w-full rounded-2xl border-0 bg-white/20 px-4 py-3 text-white placeholder-white/60 outline-none focus:bg-white/30 transition-all duration-300 md:max-w-xs hover:bg-white/25"
+              onChange={(event) => setQuery(event.target.value)}
               placeholder="🔍 場所 / イベント名"
               type="search"
+              value={query}
             />
           </div>
         </section>
 
+        {/* ローディング状態 */}
+        {status === "loading" && (
+          <p className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-700">
+            イベントを読み込み中です。
+          </p>
+        )}
+
+        {/* エラー状態 */}
+        {status === "error" && (
+          <p className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+            {error}
+          </p>
+        )}
+
+        {/* 検索結果なし */}
+        {status === "ready" && visibleEvents.length === 0 && (
+          <p className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-700">
+            表示できるイベントがありません。
+          </p>
+        )}
+
         {/* イベントカードグリッド */}
         <div className="grid gap-5 md:grid-cols-3">
-          {sampleEvents.map((event) => (
+          {visibleEvents.map((event) => (
             <Link
               className="event-card group relative overflow-hidden rounded-3xl transition-all duration-300 cursor-pointer"
               key={event.id}
@@ -139,4 +210,5 @@ export function EventSearchPage() {
       </div>
     </>
   )
+}
 }
