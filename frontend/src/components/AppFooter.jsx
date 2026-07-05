@@ -15,7 +15,7 @@ function footerLinkClassName({ isActive }) {
 
 export function AppFooter() {
   return (
-    <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/90 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl shadow-black/40 backdrop-blur">
+    <footer className="fixed inset-x-0 bottom-0 z-[1200] border-t border-white/10 bg-slate-950/90 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl shadow-black/40 backdrop-blur">
       <nav className="mx-auto flex max-w-md items-center justify-between gap-2">
         {footerItems.map((item) => {
           const Icon = item.icon
