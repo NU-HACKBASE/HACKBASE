@@ -6,6 +6,27 @@ import { useCurrentUser } from '../hooks/useCurrentUser'
 
 const DEFAULT_CENTER = { latitude: 35.681236, longitude: 139.767125 }
 
+const EVENTS = [
+  {
+    id: 'matsubara-high-school',
+    title: '松原高校イベント',
+    place: '東京都立松原高等学校',
+    latitude: 35.665096,
+    longitude: 139.635306,
+    heat: 88,
+    radius: 120,
+  },
+  {
+    id: 'midorigaoka-junior-high-school',
+    title: '緑丘中学校イベント',
+    place: '世田谷区立緑丘中学校',
+    latitude: 35.661546,
+    longitude: 139.631289,
+    heat: 64,
+    radius: 300,
+  },
+]
+
 const INITIAL_LOCATION = {
   latitude: null,
   longitude: null,
@@ -29,6 +50,30 @@ function createArrowIcon() {
     html: '<div class="arrow-marker"></div>',
     iconSize: [24, 28],
     iconAnchor: [12, 20],
+  })
+}
+
+function getEventColor(heat) {
+  if (heat >= 80) {
+    return '#f97316'
+  }
+
+  if (heat >= 60) {
+    return '#8b5cf6'
+  }
+
+  return '#10b981'
+}
+
+function createEventIcon(event) {
+  const color = getEventColor(event.heat)
+
+  return L.divIcon({
+    className: '',
+    html: `<div class="event-pin" style="--event-color: ${color}"><span></span></div>`,
+    iconSize: [42, 52],
+    iconAnchor: [21, 48],
+    popupAnchor: [0, -42],
   })
 }
 
@@ -62,6 +107,7 @@ export function MapPage() {
   const mapElementRef = useRef(null)
   const mapRef = useRef(null)
   const markerRef = useRef(null)
+  const eventLayersRef = useRef([])
   const hasCenteredRef = useRef(false)
   const lastLookupRef = useRef({ key: '', at: 0 })
   const watchIdRef = useRef(null)
@@ -83,29 +129,62 @@ export function MapPage() {
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map)
 
-    const marker = L.marker([DEFAULT_CENTER.latitude, DEFAULT_CENTER.longitude], {
-      icon: createArrowIcon(),
-    }).addTo(map)
+    const marker = L.marker(
+      [DEFAULT_CENTER.latitude, DEFAULT_CENTER.longitude],
+      {
+        icon: createArrowIcon(),
+      },
+    ).addTo(map)
+
+    const eventLayers = EVENTS.flatMap((event) => {
+      const color = getEventColor(event.heat)
+      const circle = L.circle([event.latitude, event.longitude], {
+        radius: event.radius,
+        color,
+        weight: 2,
+        fillColor: color,
+        fillOpacity: 0.14,
+      }).addTo(map)
+
+      const eventMarker = L.marker([event.latitude, event.longitude], {
+        icon: createEventIcon(event),
+      })
+        .bindPopup(
+          `<strong>${event.title}</strong><br>${event.place}<br>盛り上がり度: ${event.heat}<br>半径: ${event.radius}m`,
+        )
+        .addTo(map)
+
+      return [circle, eventMarker]
+    })
 
     mapRef.current = map
     markerRef.current = marker
+    eventLayersRef.current = eventLayers
 
     return () => {
+      eventLayersRef.current.forEach((layer) => layer.remove())
       map.remove()
       mapRef.current = null
       markerRef.current = null
+      eventLayersRef.current = []
     }
   }, [isReady])
 
   useEffect(() => {
-    if (!isReady || typeof navigator === 'undefined' || !navigator.geolocation) {
+    if (
+      !isReady ||
+      typeof navigator === 'undefined' ||
+      !navigator.geolocation
+    ) {
       return undefined
     }
 
     let cancelled = false
 
     const updateArrowHeading = (heading) => {
-      const arrow = markerRef.current?.getElement()?.querySelector('.arrow-marker')
+      const arrow = markerRef.current
+        ?.getElement()
+        ?.querySelector('.arrow-marker')
 
       if (!arrow) {
         return
@@ -145,7 +224,10 @@ export function MapPage() {
         placeName: '地名を取得中...',
       })
 
-      if (lookupKey === lastLookupRef.current.key && now - lastLookupRef.current.at < 5000) {
+      if (
+        lookupKey === lastLookupRef.current.key &&
+        now - lastLookupRef.current.at < 5000
+      ) {
         return
       }
 
@@ -193,10 +275,14 @@ export function MapPage() {
       maximumAge: 5000,
     }
 
-    navigator.geolocation.getCurrentPosition(handlePosition, handlePositionError, {
-      ...options,
-      maximumAge: 0,
-    })
+    navigator.geolocation.getCurrentPosition(
+      handlePosition,
+      handlePositionError,
+      {
+        ...options,
+        maximumAge: 0,
+      },
+    )
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       handlePosition,
