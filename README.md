@@ -81,6 +81,7 @@ make build         # build backend and frontend
 make lint          # backend typecheck and frontend eslint
 make test          # run backend unit tests
 make openapi-check # validate required OpenAPI shape
+make smoke-api     # run API smoke test against the running backend
 make down          # stop containers
 make clean         # stop containers and remove volumes
 ```

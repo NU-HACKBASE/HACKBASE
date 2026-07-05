@@ -1,4 +1,4 @@
-.PHONY: setup install dev dev-backend dev-frontend docker-up docker-build build lint test openapi-check down logs clean
+.PHONY: setup install dev dev-backend dev-frontend docker-up docker-build build lint test openapi-check smoke-api down logs clean
 
 setup: install
 	cp -n .env.example .env || true
@@ -37,6 +37,9 @@ test:
 
 openapi-check:
 	npm --prefix backend run openapi:check
+
+smoke-api:
+	npm --prefix backend run smoke:api
 
 down:
 	docker compose down

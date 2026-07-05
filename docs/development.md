@@ -55,6 +55,7 @@ make lint
 make test
 make build
 make openapi-check
+make smoke-api
 make docker-up
 make down
 ```

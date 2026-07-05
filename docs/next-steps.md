@@ -9,6 +9,7 @@
 ## API
 
 - OpenAPI と実装の差分検知を強める
+- API smoke test を CI で任意実行できるようにする
 - Repository の統合テストを Supabase で追加する
 - WebSocket 通知をチャット投稿やルーム更新と接続する
 
