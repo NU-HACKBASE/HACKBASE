@@ -1,5 +1,7 @@
 import { config } from 'dotenv'
 
+import { readEnv } from './read-env.js'
+
 config({ path: new URL('../../../.env', import.meta.url) })
 
 export type AppEnv = {
@@ -16,24 +18,10 @@ export type AppEnv = {
   adminPassword: string
 }
 
-export const readEnv = (
-  key: string,
-  fallback?: string,
-  processEnv: NodeJS.ProcessEnv = process.env,
-): string => {
-  const value = processEnv[key] ?? fallback
-
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${key}`)
-  }
-
-  return value
-}
-
-const appEnv = readEnv('APP_ENV')
+export { readEnv } from './read-env.js'
 
 export const env: AppEnv = {
-  appEnv,
+  appEnv: readEnv('APP_ENV'),
   host: readEnv('BACKEND_HOST'),
   port: Number(readEnv('BACKEND_PORT')),
   corsOrigin: readEnv('CORS_ORIGIN'),
