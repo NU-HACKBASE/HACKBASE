@@ -10,6 +10,7 @@ export type AppEnv = {
   supabaseUrl: string
   supabasePublishableKey: string
   supabaseSecretKey: string
+  supabaseServiceRoleKey: string
   supabaseJwksUrl: string
   authSecret: string
   adminPassword: string
@@ -39,6 +40,7 @@ export const env: AppEnv = {
   supabaseUrl: readEnv('SUPABASE_URL'),
   supabasePublishableKey: readEnv('SUPABASE_PUBLISHABLE_KEY'),
   supabaseSecretKey: readEnv('SUPABASE_SECRET_KEY'),
+  supabaseServiceRoleKey: readEnv('SUPABASE_SERVICE_ROLE_KEY', process.env.SUPABASE_SECRET_KEY),
   supabaseJwksUrl: readEnv('SUPABASE_JWKS_URL'),
   authSecret: readEnv('AUTH_SECRET'),
   adminPassword: readEnv('ADMIN_PASSWORD'),

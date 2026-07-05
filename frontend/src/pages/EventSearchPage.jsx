@@ -1,55 +1,106 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 
-import { fetchEvents } from "../lib/eventApi";
+import { fetchEvents } from '../lib/eventApi'
+
+const GEOLOCATION_ERROR_MESSAGES = {
+  1: '位置情報の利用が許可されていないため、すべてのイベントを表示しています。',
+  2: '位置情報を取得できないため、すべてのイベントを表示しています。',
+  3: '位置情報の取得がタイムアウトしたため、すべてのイベントを表示しています。',
+}
 
 export function EventSearchPage() {
-  const [events, setEvents] = useState([]);
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("loading");
-  const [error, setError] = useState("");
+  const [events, setEvents] = useState([])
+  const [query, setQuery] = useState('')
+  const [status, setStatus] = useState('loading')
+  const [error, setError] = useState('')
+  const [locationStatus, setLocationStatus] = useState('pending')
+  const [locationMessage, setLocationMessage] = useState('')
 
   useEffect(() => {
-    const controller = new AbortController();
+    const controller = new AbortController()
 
-    const loadEvents = async () => {
-      setStatus("loading");
-      setError("");
+    const loadEvents = async (params = {}) => {
+      setStatus('loading')
+      setError('')
 
       try {
-        const nextEvents = await fetchEvents({}, { signal: controller.signal });
-        setEvents(nextEvents);
-        setStatus("ready");
+        const nextEvents = await fetchEvents(params, { signal: controller.signal })
+        setEvents(nextEvents)
+        setStatus('ready')
       } catch (loadError) {
         if (controller.signal.aborted) {
-          return;
+          return
         }
 
-        setError(loadError.message);
-        setStatus("error");
+        setError(loadError.message)
+        setStatus('error')
       }
-    };
+    }
 
-    loadEvents();
+    queueMicrotask(() => {
+      if (controller.signal.aborted) {
+        return
+      }
+
+      if (typeof navigator === 'undefined' || !navigator.geolocation) {
+        setLocationStatus('unavailable')
+        setLocationMessage('位置情報を使えないため、すべてのイベントを表示しています。')
+        loadEvents()
+        return
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (controller.signal.aborted) {
+            return
+          }
+
+          setLocationStatus('ready')
+          setLocationMessage('現在地の近くにあるイベントを表示しています。')
+          loadEvents({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          })
+        },
+        (locationError) => {
+          if (controller.signal.aborted) {
+            return
+          }
+
+          setLocationStatus('unavailable')
+          setLocationMessage(
+            GEOLOCATION_ERROR_MESSAGES[locationError.code] ??
+              '位置情報を取得できないため、すべてのイベントを表示しています。',
+          )
+          loadEvents()
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 30000,
+          timeout: 5000,
+        },
+      )
+    })
 
     return () => {
-      controller.abort();
-    };
-  }, []);
+      controller.abort()
+    }
+  }, [])
 
   const visibleEvents = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+    const normalizedQuery = query.trim().toLowerCase()
 
     if (!normalizedQuery) {
-      return events;
+      return events
     }
 
     return events.filter((event) =>
       [event.title, event.address].some((value) =>
         value.toLowerCase().includes(normalizedQuery),
       ),
-    );
-  }, [events, query]);
+    )
+  }, [events, query])
 
   return (
     <>
@@ -141,9 +192,18 @@ export function EventSearchPage() {
       <div className="space-y-6">
         {/* ヘッダーセクション */}
         <section className="rounded-3xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-indigo-700 p-8 text-white shadow-lg animate-fade-in-up">
-          <p className="text-base font-semibold uppercase tracking-widest opacity-90">イベント検索</p>
+          <p className="text-base font-semibold uppercase tracking-widest opacity-90">
+            イベント検索
+          </p>
           <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <h1 className="text-5xl font-black tracking-tight">イベント一覧</h1>
+            <div>
+              <h1 className="text-5xl font-black tracking-tight">イベント一覧</h1>
+              {locationMessage ? (
+                <p className="mt-3 text-sm font-medium text-white/80">
+                  {locationMessage}
+                </p>
+              ) : null}
+            </div>
             <input
               className="w-full rounded-2xl border-0 bg-white/20 px-4 py-3 text-white placeholder-white/60 outline-none focus:bg-white/30 transition-all duration-300 md:max-w-xs hover:bg-white/25"
               onChange={(event) => setQuery(event.target.value)}
@@ -155,21 +215,23 @@ export function EventSearchPage() {
         </section>
 
         {/* ローディング状態 */}
-        {status === "loading" && (
+        {status === 'loading' && (
           <p className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-700">
-            イベントを読み込み中です。
+            {locationStatus === 'pending'
+              ? '現在地を確認しています。'
+              : 'イベントを読み込み中です。'}
           </p>
         )}
 
         {/* エラー状態 */}
-        {status === "error" && (
+        {status === 'error' && (
           <p className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
             {error}
           </p>
         )}
 
         {/* 検索結果なし */}
-        {status === "ready" && visibleEvents.length === 0 && (
+        {status === 'ready' && visibleEvents.length === 0 && (
           <p className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-700">
             表示できるイベントがありません。
           </p>
@@ -187,21 +249,29 @@ export function EventSearchPage() {
               <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 group-hover:from-blue-100 group-hover:to-indigo-100 transition-all duration-300"></div>
               <div className="absolute inset-0 border border-indigo-200 rounded-3xl group-hover:border-indigo-400 transition-all duration-300"></div>
               <div className="absolute inset-0 shadow-md group-hover:shadow-2xl rounded-3xl transition-all duration-300"></div>
-              
+
               {/* コンテンツ */}
               <div className="relative p-5 z-10">
                 <div className="flex items-start justify-between gap-3 mb-3">
-                  <h2 className="flex-1 text-2xl font-black text-indigo-900 group-hover:text-teal-600 transition-colors duration-300">{event.title}</h2>
+                  <h2 className="flex-1 text-2xl font-black text-indigo-900 group-hover:text-teal-600 transition-colors duration-300">
+                    {event.title}
+                  </h2>
                   <span className="heat-badge inline-block rounded-full bg-gradient-to-br from-rose-400 to-rose-500 px-4 py-2 text-base font-bold text-white whitespace-nowrap">
                     {event.heat}℃
                   </span>
                 </div>
-                
-                <p className="text-base text-indigo-700 mb-4 group-hover:text-indigo-800 transition-colors">{event.address}</p>
-                
+
+                <p className="text-base text-indigo-700 mb-4 group-hover:text-indigo-800 transition-colors">
+                  {event.address}
+                </p>
+
                 <div className="flex items-center justify-between pt-4 border-t border-indigo-200">
-                  <span className="text-base font-bold text-indigo-600">👥 {event.participants}人</span>
-                  <span className="arrow-icon text-teal-600 font-bold text-lg">→</span>
+                  <span className="text-base font-bold text-indigo-600">
+                    👥 {event.participants}人
+                  </span>
+                  <span className="arrow-icon text-teal-600 font-bold text-lg">
+                    →
+                  </span>
                 </div>
               </div>
             </Link>

@@ -18,6 +18,16 @@ export async function fetchCurrentUser({ userId, token }) {
   return normalizeUserPayload(data)
 }
 
+export async function loginAdmin({ password, userName }) {
+  const data = await apiRequest('/admin/login', {
+    auth: false,
+    body: { password, userName },
+    method: 'POST',
+  })
+
+  return normalizeUserPayload(data)
+}
+
 function createAuthHeaders({ userId, token }) {
   const authValue = token ?? userId
   const headers = {}

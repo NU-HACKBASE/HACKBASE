@@ -21,12 +21,13 @@ export async function apiRequest(path, options = {}) {
     method = body === undefined ? 'GET' : 'POST',
     query,
     signal,
+    token,
   } = options
   const requestHeaders = createHeaders(headers)
   const requestBody = createBody(body, requestHeaders)
 
   if (auth) {
-    applyAuthHeaders(requestHeaders)
+    applyAuthHeaders(requestHeaders, token)
   }
 
   const response = await fetch(createUrl(path, baseUrl, query), {
@@ -83,10 +84,10 @@ function createBody(body, headers) {
   return JSON.stringify(body)
 }
 
-function applyAuthHeaders(headers) {
-  const token = localStorage.getItem(userTokenStorageKey)
+function applyAuthHeaders(headers, token) {
+  const storedToken = localStorage.getItem(userTokenStorageKey)
   const userId = localStorage.getItem(userIdStorageKey)
-  const bearerValue = token ?? userId
+  const bearerValue = token ?? storedToken ?? userId
 
   if (bearerValue && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${bearerValue}`)
@@ -102,7 +103,7 @@ function createUrl(path, baseUrl, query) {
     return appendQuery(path, query)
   }
 
-  const normalizedBaseUrl = baseUrl.replace(/\/$/, '')
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '')
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
 
   return appendQuery(`${normalizedBaseUrl}${normalizedPath}`, query)

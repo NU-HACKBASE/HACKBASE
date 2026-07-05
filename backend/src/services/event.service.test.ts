@@ -154,7 +154,7 @@ test('EventService lists events filtered by coordinates', async () => {
   assert.deepEqual(calls.listInput, {
     latitude: 35.68,
     longitude: 139.76,
-    nearbyRadiusMeters: 200,
+    nearbyRadiusMeters: 1000,
   })
 })
 
