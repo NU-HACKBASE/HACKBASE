@@ -79,76 +79,42 @@ export class EventRepository {
     longitude?: number
     nearbyRadiusMeters?: number
   }): Promise<EventRecord[]> {
-    const hasCoordinates =
-      input?.latitude !== undefined &&
-      input?.longitude !== undefined &&
-      input?.nearbyRadiusMeters !== undefined
-    const params = hasCoordinates
-      ? [input.latitude, input.longitude, input.nearbyRadiusMeters]
-      : []
-    const whereClause = hasCoordinates
-      ? `
-        where
-          e.latitude is not null
-          and e.longitude is not null
-          and (
-            6371000 * acos(
-              least(
-                1,
-                greatest(
-                  -1,
-                  cos(radians($1)) * cos(radians(e.latitude)) *
-                  cos(radians(e.longitude) - radians($2)) +
-                  sin(radians($1)) * sin(radians(e.latitude))
-                )
-              )
-            )
-          ) <= $3
-      `
-      : ''
-    const orderByClause = hasCoordinates
-      ? `
-        order by
-          (
-            6371000 * acos(
-              least(
-                1,
-                greatest(
-                  -1,
-                  cos(radians($1)) * cos(radians(e.latitude)) *
-                  cos(radians(e.longitude) - radians($2)) +
-                  sin(radians($1)) * sin(radians(e.latitude))
-                )
-              )
-            )
-          ) asc,
-          e.created_at desc
-      `
-      : 'order by e.created_at desc'
-    const result = await this.db.query<EventRow>(`
-      select
-        e.id,
-        e.title,
-        e.address,
-        e.latitude,
-        e.longitude,
-        e.radius,
-        e.manager_id,
-        e.starts_at,
-        e.created_at,
-        coalesce(avg(r.heat), 0)::int as heat,
-        count(distinct c.user_id)::int as participants
-      from events e
-      left join rooms r on r.event_id = e.id
-      left join chats c on c.event_id = e.id and c.deleted_at is null
-      ${whereClause}
-      group by e.id
-      ${orderByClause}
-    `, params)
+    const { data, error } = await this.db
+      .from('events')
+      .select(eventSelect)
+      .order('created_at', { ascending: false })
+      .returns<EventRow[]>()
 
     throwIfSupabaseError(error)
 
-    return Promise.all((data ?? []).map((row) => this.mapEventWithStats(row)))
+    const rows = data ?? []
+
+    if (
+      input?.latitude === undefined ||
+      input.longitude === undefined ||
+      input.nearbyRadiusMeters === undefined
+    ) {
+      return Promise.all(rows.map((row) => this.mapEventWithStats(row)))
+    }
+
+    const latitude = input.latitude
+    const longitude = input.longitude
+    const nearbyRadiusMeters = input.nearbyRadiusMeters
+    const filteredRows = rows
+      .filter(
+        (row) =>
+          row.latitude !== null &&
+          row.longitude !== null &&
+          calculateDistanceMeters(latitude, longitude, row.latitude, row.longitude) <=
+            nearbyRadiusMeters,
+      )
+      .sort(
+        (a, b) =>
+          calculateDistanceMeters(latitude, longitude, a.latitude ?? 0, a.longitude ?? 0) -
+          calculateDistanceMeters(latitude, longitude, b.latitude ?? 0, b.longitude ?? 0),
+      )
+
+    return Promise.all(filteredRows.map((row) => this.mapEventWithStats(row)))
   }
 
   async findById(eventId: string): Promise<EventRecord | null> {
@@ -388,3 +354,27 @@ export class EventRepository {
 
 const eventSelect =
   'id, title, address, latitude, longitude, radius, manager_id, starts_at, created_at'
+
+function calculateDistanceMeters(
+  fromLatitude: number,
+  fromLongitude: number,
+  toLatitude: number,
+  toLongitude: number,
+) {
+  const earthRadiusMeters = 6371000
+  const latitudeDistance = toRadians(toLatitude - fromLatitude)
+  const longitudeDistance = toRadians(toLongitude - fromLongitude)
+  const fromLatitudeRadians = toRadians(fromLatitude)
+  const toLatitudeRadians = toRadians(toLatitude)
+  const a =
+    Math.sin(latitudeDistance / 2) ** 2 +
+    Math.cos(fromLatitudeRadians) *
+      Math.cos(toLatitudeRadians) *
+      Math.sin(longitudeDistance / 2) ** 2
+
+  return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function toRadians(degrees: number) {
+  return (degrees * Math.PI) / 180
+}

@@ -194,15 +194,3 @@ export function EventDetailPage() {
     </div>
   )
 }
-
-function getJoinButtonLabel(joinStatus) {
-  if (joinStatus === 'joining') {
-    return '参加中...'
-  }
-
-  if (joinStatus === 'joined') {
-    return '参加済み'
-  }
-
-  return '参加'
-}
