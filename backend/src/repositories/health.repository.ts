@@ -1,32 +1,18 @@
-import type pg from 'pg'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type DependencyStatus = 'ok' | 'error'
 
-type CacheClient = {
-  ping: () => Promise<unknown>
-}
-
 export class HealthRepository {
-  constructor(
-    private readonly db: pg.Pool,
-    private readonly cache: CacheClient,
-  ) {}
+  constructor(private readonly db: SupabaseClient) {}
 
   async checkDatabase(): Promise<DependencyStatus> {
     try {
-      await this.db.query('select 1')
-      return 'ok'
+      const { error } = await this.db.from('users').select('id').limit(1)
+
+      return error ? 'error' : 'ok'
     } catch {
       return 'error'
     }
   }
 
-  async checkCache(): Promise<DependencyStatus> {
-    try {
-      await this.cache.ping()
-      return 'ok'
-    } catch {
-      return 'error'
-    }
-  }
 }

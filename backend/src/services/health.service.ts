@@ -8,7 +8,6 @@ export type HealthResult = {
   services: {
     api: 'ok'
     database: DependencyStatus
-    cache: DependencyStatus
   }
 }
 
@@ -16,18 +15,14 @@ export class HealthService {
   constructor(private readonly healthRepository: HealthRepository) {}
 
   async getHealth(): Promise<HealthResult> {
-    const [database, cache] = await Promise.all([
-      this.healthRepository.checkDatabase(),
-      this.healthRepository.checkCache(),
-    ])
+    const database = await this.healthRepository.checkDatabase()
 
     return {
-      status: database === 'ok' && cache === 'ok' ? 'ok' : 'degraded',
+      status: database === 'ok' ? 'ok' : 'degraded',
       timestamp: new Date().toISOString(),
       services: {
         api: 'ok',
         database,
-        cache,
       },
     }
   }

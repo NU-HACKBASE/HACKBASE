@@ -50,7 +50,7 @@ find . -maxdepth 3 -type f -not -path './.git/*' -not -path './frontend/node_mod
 - route は `backend/src/routes` にある
 - handler は HTTP の詳細だけを扱っている
 - service にユースケースがある
-- repository に DB/cache access が閉じている
+- repository に Supabase access が閉じている
 - `make openapi-check` が通る
 - `npm --prefix backend run lint` が通る
 

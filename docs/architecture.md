@@ -22,7 +22,7 @@ Service
  ↓
 Repository
  ↓
-Database / Cache
+Database
 ```
 
 各レイヤーの責務は次の通りです。
@@ -32,8 +32,8 @@ Database / Cache
 | Route | `backend/src/routes` | URL、HTTP method、Handler の接続 |
 | Handler | `backend/src/handlers` | request/response の変換 |
 | Service | `backend/src/services` | ユースケース、業務ロジック |
-| Repository | `backend/src/repositories` | PostgreSQL、Redis などの永続化層アクセス |
-| DB Client | `backend/src/db` | PostgreSQL / Redis クライアント生成 |
+| Repository | `backend/src/repositories` | Supabase への永続化層アクセス |
+| DB Client | `backend/src/db` | Supabase クライアント生成 |
 | External | `backend/src/external` | AI API、外部 SaaS、第三者 API との接続 |
 | WebSocket | `backend/src/ws` | WebSocket 接続、message handling |
 
@@ -45,7 +45,7 @@ Database / Cache
 
 - REST API health status
 - WebSocket connection status
-- PostgreSQL / Redis dependency status
+- Supabase dependency status
 - Swagger UI へのリンク
 
 主要ファイル:
@@ -84,17 +84,17 @@ backend/src/repositories
 - REST と WebSocket を分けて扱える
 - OpenAPI が API 仕様の入口になる
 - AI など外部サービスを route/handler に混ぜずに追加できる
-- PostgreSQL / Redis の接続確認がすぐできる
+- Supabase の接続確認がすぐできる
 
 ## デメリット
 
 - 小さい機能でもファイル数は少し増える
 - OpenAPI と実装の完全な自動同期はまだない
-- DB migration や test framework は未導入
+- SQL migration runner は未導入
 
 ## 今後の拡張候補
 
-- DB migration: Drizzle Kit, Prisma Migrate, node-pg-migrate
+- DB migration runner: Supabase CLI, Drizzle Kit, node-pg-migrate
 - API client generation: openapi-typescript, Orval
 - Test: Vitest
 - CI: GitHub Actions

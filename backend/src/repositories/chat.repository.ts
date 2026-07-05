@@ -1,143 +1,226 @@
 import { randomUUID } from 'node:crypto'
 
-import type pg from 'pg'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 import type { ChatRecord } from '../types/api.js'
+import {
+  throwIfSupabaseError,
+  toIsoString,
+  toNullableIsoString,
+} from './supabase-utils.js'
 
 type ChatRow = {
   id: string
   event_id: string
   room_id: string
   user_id: string
-  user_name: string
   body: string
-  liked_count: string | number
-  created_at: Date
-  updated_at: Date | null
+  created_at: string
+  updated_at: string | null
+}
+
+type UserRow = {
+  id: string
+  name: string
+}
+
+type LikeRow = {
+  chat_id: string
 }
 
 export class ChatRepository {
-  constructor(private readonly db: pg.Pool) {}
+  constructor(private readonly db: SupabaseClient) {}
 
   async create(input: { eventId: string; roomId: string; userId: string; body: string }) {
     const id = randomUUID()
-    const result = await this.db.query<ChatRow>(
-      `
-        insert into chats (id, event_id, room_id, user_id, body)
-        values ($1, $2, $3, $4, $5)
-        returning
-          id,
-          event_id,
-          room_id,
-          user_id,
-          (select name from users where users.id = chats.user_id) as user_name,
-          body,
-          0 as liked_count,
-          created_at,
-          updated_at
-      `,
-      [id, input.eventId, input.roomId, input.userId, input.body],
-    )
+    const { error } = await this.db.from('chats').insert({
+      id,
+      event_id: input.eventId,
+      room_id: input.roomId,
+      user_id: input.userId,
+      body: input.body,
+    })
 
-    return mapChat(result.rows[0])
+    throwIfSupabaseError(error)
+
+    const chat = await this.findById(id)
+
+    if (!chat) {
+      throw new Error('Failed to create chat')
+    }
+
+    return chat
   }
 
   async listByRoomId(roomId: string, limit: number): Promise<ChatRecord[]> {
-    const result = await this.db.query<ChatRow>(
-      `
-        select
-          c.id,
-          c.event_id,
-          c.room_id,
-          c.user_id,
-          u.name as user_name,
-          c.body,
-          count(l.chat_id)::int as liked_count,
-          c.created_at,
-          c.updated_at
-        from chats c
-        join users u on u.id = c.user_id
-        left join likes l on l.chat_id = c.id
-        where c.room_id = $1 and c.deleted_at is null
-        group by c.id, u.name
-        order by c.created_at desc
-        limit $2
-      `,
-      [roomId, limit],
-    )
+    const { data, error } = await this.db
+      .from('chats')
+      .select(chatSelect)
+      .eq('room_id', roomId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+      .returns<ChatRow[]>()
 
-    return result.rows.map(mapChat).reverse()
+    throwIfSupabaseError(error)
+
+    return this.mapChats(data ?? []).then((chats) => chats.reverse())
   }
 
   async findById(chatId: string): Promise<ChatRecord | null> {
-    const result = await this.db.query<ChatRow>(
-      `
-        select
-          c.id,
-          c.event_id,
-          c.room_id,
-          c.user_id,
-          u.name as user_name,
-          c.body,
-          count(l.chat_id)::int as liked_count,
-          c.created_at,
-          c.updated_at
-        from chats c
-        join users u on u.id = c.user_id
-        left join likes l on l.chat_id = c.id
-        where c.id = $1 and c.deleted_at is null
-        group by c.id, u.name
-      `,
-      [chatId],
-    )
+    const { data, error } = await this.db
+      .from('chats')
+      .select(chatSelect)
+      .eq('id', chatId)
+      .is('deleted_at', null)
+      .maybeSingle<ChatRow>()
 
-    return result.rows[0] ? mapChat(result.rows[0]) : null
+    throwIfSupabaseError(error)
+
+    return data ? this.mapChat(data) : null
   }
 
   async update(chatId: string, body: string): Promise<ChatRecord | null> {
-    await this.db.query('update chats set body = $2, updated_at = now() where id = $1', [
-      chatId,
-      body,
-    ])
+    const { error } = await this.db
+      .from('chats')
+      .update({
+        body,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', chatId)
+
+    throwIfSupabaseError(error)
 
     return this.findById(chatId)
   }
 
   async delete(chatId: string) {
-    await this.db.query('update chats set deleted_at = now() where id = $1', [chatId])
+    const { error } = await this.db
+      .from('chats')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', chatId)
+
+    throwIfSupabaseError(error)
   }
 
   async like(input: { chatId: string; userId: string }) {
-    await this.db.query(
-      `
-        insert into likes (chat_id, user_id)
-        values ($1, $2)
-        on conflict do nothing
-      `,
-      [input.chatId, input.userId],
+    const { error } = await this.db.from('likes').upsert(
+      {
+        chat_id: input.chatId,
+        user_id: input.userId,
+      },
+      { onConflict: 'user_id,chat_id', ignoreDuplicates: true },
     )
+
+    throwIfSupabaseError(error)
 
     return this.findById(input.chatId)
   }
 
   async unlike(input: { chatId: string; userId: string }) {
-    await this.db.query('delete from likes where chat_id = $1 and user_id = $2', [
-      input.chatId,
-      input.userId,
-    ])
+    const { error } = await this.db
+      .from('likes')
+      .delete()
+      .eq('chat_id', input.chatId)
+      .eq('user_id', input.userId)
+
+    throwIfSupabaseError(error)
 
     return this.findById(input.chatId)
   }
+
+  private async mapChats(rows: ChatRow[]): Promise<ChatRecord[]> {
+    const userIds = [...new Set(rows.map((row) => row.user_id))]
+    const chatIds = rows.map((row) => row.id)
+    const [users, likeCounts] = await Promise.all([
+      this.findUsers(userIds),
+      this.countLikesByChatIds(chatIds),
+    ])
+
+    return rows.map((row) => mapChat(row, users.get(row.user_id)?.name ?? row.user_id, likeCounts.get(row.id) ?? 0))
+  }
+
+  private async mapChat(row: ChatRow): Promise<ChatRecord> {
+    const [user, likedCount] = await Promise.all([
+      this.findUser(row.user_id),
+      this.countLikes(row.id),
+    ])
+
+    return mapChat(row, user?.name ?? row.user_id, likedCount)
+  }
+
+  private async findUser(userId: string): Promise<UserRow | null> {
+    const { data, error } = await this.db
+      .from('users')
+      .select('id, name')
+      .eq('id', userId)
+      .maybeSingle<UserRow>()
+
+    throwIfSupabaseError(error)
+
+    return data
+  }
+
+  private async findUsers(userIds: string[]): Promise<Map<string, UserRow>> {
+    if (userIds.length === 0) {
+      return new Map()
+    }
+
+    const { data, error } = await this.db
+      .from('users')
+      .select('id, name')
+      .in('id', userIds)
+      .returns<UserRow[]>()
+
+    throwIfSupabaseError(error)
+
+    return new Map((data ?? []).map((row) => [row.id, row]))
+  }
+
+  private async countLikes(chatId: string): Promise<number> {
+    const { count, error } = await this.db
+      .from('likes')
+      .select('chat_id', { count: 'exact', head: true })
+      .eq('chat_id', chatId)
+
+    throwIfSupabaseError(error)
+
+    return count ?? 0
+  }
+
+  private async countLikesByChatIds(chatIds: string[]): Promise<Map<string, number>> {
+    if (chatIds.length === 0) {
+      return new Map()
+    }
+
+    const { data, error } = await this.db
+      .from('likes')
+      .select('chat_id')
+      .in('chat_id', chatIds)
+      .returns<LikeRow[]>()
+
+    throwIfSupabaseError(error)
+
+    const counts = new Map<string, number>()
+
+    for (const row of data ?? []) {
+      counts.set(row.chat_id, (counts.get(row.chat_id) ?? 0) + 1)
+    }
+
+    return counts
+  }
 }
 
-const mapChat = (row: ChatRow): ChatRecord => ({
+const chatSelect = 'id, event_id, room_id, user_id, body, created_at, updated_at'
+
+const mapChat = (row: ChatRow, userName: string, likedCount: number): ChatRecord => ({
   chatId: row.id,
   eventId: row.event_id,
   roomId: row.room_id,
   userId: row.user_id,
-  userName: row.user_name,
+  userName,
   body: row.body,
-  likedCount: Number(row.liked_count),
-  createdAt: row.created_at.toISOString(),
-  updatedAt: row.updated_at?.toISOString() ?? null,
+  likedCount,
+  createdAt: toIsoString(row.created_at),
+  updatedAt: toNullableIsoString(row.updated_at),
 })

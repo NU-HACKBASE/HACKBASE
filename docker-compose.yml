@@ -4,29 +4,28 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: hackbase-backend
+    env_file:
+      - .env
     environment:
-      APP_ENV: development
-      BACKEND_HOST: 0.0.0.0
-      BACKEND_PORT: 8787
-      CORS_ORIGIN: http://localhost:5173
-      AUTH_SECRET: local-development-secret
-      ADMIN_PASSWORD: admin
-      DATABASE_URL: postgres://hackbase:hackbase@postgres:5432/hackbase
-      REDIS_URL: redis://redis:6379
+      APP_ENV: ${APP_ENV:?Set APP_ENV in .env}
+      BACKEND_HOST: ${BACKEND_HOST:?Set BACKEND_HOST in .env}
+      BACKEND_PORT: ${BACKEND_PORT:?Set BACKEND_PORT in .env}
+      CORS_ORIGIN: ${CORS_ORIGIN:?Set CORS_ORIGIN in .env}
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL in .env}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:?Set SUPABASE_PUBLISHABLE_KEY in .env}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:?Set SUPABASE_SECRET_KEY in .env}
+      SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL:?Set SUPABASE_JWKS_URL in .env}
     ports:
       - "8787:8787"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
       test:
         [
           "CMD",
           "node",
           "-e",
-          "fetch('http://localhost:8787/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:' + process.env.BACKEND_PORT + '/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 10s
       timeout: 3s
@@ -37,8 +36,8 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
       args:
-        VITE_API_BASE_URL: http://localhost:8787
-        VITE_WS_URL: ws://localhost:8787/ws
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:?Set VITE_API_BASE_URL in .env}
+        VITE_WS_URL: ${VITE_WS_URL:?Set VITE_WS_URL in .env}
     container_name: hackbase-frontend
     ports:
       - "5173:80"
@@ -50,37 +49,3 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
-
-  postgres:
-    image: postgres:16-alpine
-    container_name: hackbase-postgres
-    environment:
-      POSTGRES_USER: hackbase
-      POSTGRES_PASSWORD: hackbase
-      POSTGRES_DB: hackbase
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hackbase -d hackbase"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  redis:
-    image: redis:7-alpine
-    container_name: hackbase-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-volumes:
-  postgres-data:
-  redis-data:

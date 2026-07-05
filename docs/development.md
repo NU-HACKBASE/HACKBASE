@@ -8,13 +8,9 @@ make setup
 
 このコマンドで frontend/backend の依存関係をインストールし、`.env.example` から `.env` を作成します。
 
+`.env` の `SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEY`、`SUPABASE_SECRET_KEY`、`SUPABASE_JWKS_URL` は実プロジェクトの値に置き換えてください。URL、key、Secret はコードや `docker-compose.yml` に直書きせず、必ず `.env` で管理します。
+
 ## 起動
-
-インフラを起動します。
-
-```bash
-make dev-infra
-```
 
 バックエンドを起動します。
 
@@ -30,7 +26,7 @@ make dev-frontend
 
 ## Docker で全体起動
 
-frontend、backend、PostgreSQL、Redis をすべて Docker で起動します。
+frontend、backend を Docker で起動します。DB は `.env` の Supabase 変数で接続します。
 
 ```bash
 make docker-up

@@ -8,8 +8,7 @@ import { logger } from 'hono/logger'
 import { parse } from 'yaml'
 
 import { env } from './config/env.js'
-import { pool } from './db/postgres.js'
-import { redis } from './db/redis.js'
+import { supabaseAdmin } from './db/supabase.js'
 import { ChatHandler } from './handlers/chat.handler.js'
 import { EventHandler } from './handlers/event.handler.js'
 import { HealthHandler } from './handlers/health.handler.js'
@@ -44,14 +43,14 @@ export const createApp = () => {
     }),
   )
 
-  const healthRepository = new HealthRepository(pool, redis)
+  const healthRepository = new HealthRepository(supabaseAdmin)
   const healthService = new HealthService(healthRepository)
   const healthHandler = new HealthHandler(healthService)
   const authService = new AuthService()
-  const userRepository = new UserRepository(pool)
-  const eventRepository = new EventRepository(pool)
-  const roomRepository = new RoomRepository(pool)
-  const chatRepository = new ChatRepository(pool)
+  const userRepository = new UserRepository(supabaseAdmin)
+  const eventRepository = new EventRepository(supabaseAdmin)
+  const roomRepository = new RoomRepository(supabaseAdmin)
+  const chatRepository = new ChatRepository(supabaseAdmin)
   const userService = new UserService(userRepository, authService)
   const eventService = new EventService(eventRepository, authService)
   const roomService = new RoomService(

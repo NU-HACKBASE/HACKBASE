@@ -18,7 +18,7 @@ paths:
     get:
       operationId: getHealth
       tags: [System]
-      summary: Check API, database, and cache health
+      summary: Check API and database health
       responses:
         "200":
           description: Service is healthy
@@ -519,9 +519,6 @@ components:
               type: string
               enum: [ok]
             database:
-              type: string
-              enum: [ok, error]
-            cache:
               type: string
               enum: [ok, error]
     AuthResponse:

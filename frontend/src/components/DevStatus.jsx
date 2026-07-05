@@ -68,15 +68,13 @@ export function DevStatus() {
     if (!health?.services) {
       return [
         ['API', 'pending'],
-        ['PostgreSQL', 'pending'],
-        ['Redis', 'pending'],
+        ['Supabase', 'pending'],
       ]
     }
 
     return [
       ['API', health.services.api],
-      ['PostgreSQL', health.services.database],
-      ['Redis', health.services.cache],
+      ['Supabase', health.services.database],
     ]
   }, [health])
 

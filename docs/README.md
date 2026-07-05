@@ -9,7 +9,8 @@ HACKBASE の開発ドキュメントです。
 3. [API Guide](./api-guide.md)
 4. [WebSocket Guide](./websocket.md)
 5. [Environment Variables](./environment.md)
-6. [Agent Guide](./agent-guide.md)
+6. [Supabase](./supabase.md)
+7. [Agent Guide](./agent-guide.md)
 
 ## ドキュメント方針
 

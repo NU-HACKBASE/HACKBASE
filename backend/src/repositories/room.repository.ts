@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto'
 
-import type pg from 'pg'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 import type { RoomRecord } from '../types/api.js'
+import { throwIfSupabaseError, toIsoString } from './supabase-utils.js'
 
 type RoomRow = {
   id: string
@@ -10,85 +11,76 @@ type RoomRow = {
   title: string
   heat: number
   summary: string
-  participants: string | number
-  created_at: Date
+  created_at: string
+}
+
+type ChatUserRow = {
+  user_id: string
 }
 
 export class RoomRepository {
-  constructor(private readonly db: pg.Pool) {}
+  constructor(private readonly db: SupabaseClient) {}
 
   async create(input: { eventId: string; title: string; summary?: string }): Promise<RoomRecord> {
     const id = randomUUID()
-    const result = await this.db.query<RoomRow>(
-      `
-        insert into rooms (id, event_id, title, summary)
-        values ($1, $2, $3, $4)
-        returning id, event_id, title, heat, summary, 0 as participants, created_at
-      `,
-      [id, input.eventId, input.title, input.summary ?? ''],
-    )
+    const { data, error } = await this.db
+      .from('rooms')
+      .insert({
+        id,
+        event_id: input.eventId,
+        title: input.title,
+        summary: input.summary ?? '',
+      })
+      .select(roomSelect)
+      .single<RoomRow>()
 
-    return mapRoom(result.rows[0])
+    throwIfSupabaseError(error)
+
+    if (!data) {
+      throw new Error('Failed to create room')
+    }
+
+    return this.mapRoom(data)
   }
 
   async listByEventId(eventId: string): Promise<RoomRecord[]> {
-    const result = await this.db.query<RoomRow>(
-      `
-        select
-          r.id,
-          r.event_id,
-          r.title,
-          r.heat,
-          r.summary,
-          count(distinct c.user_id)::int as participants,
-          r.created_at
-        from rooms r
-        left join chats c on c.room_id = r.id and c.deleted_at is null
-        where r.event_id = $1
-        group by r.id
-        order by r.heat desc, r.created_at asc
-      `,
-      [eventId],
-    )
+    const { data, error } = await this.db
+      .from('rooms')
+      .select(roomSelect)
+      .eq('event_id', eventId)
+      .order('heat', { ascending: false })
+      .order('created_at', { ascending: true })
+      .returns<RoomRow[]>()
 
-    return result.rows.map(mapRoom)
+    throwIfSupabaseError(error)
+
+    return Promise.all((data ?? []).map((row) => this.mapRoom(row)))
   }
 
   async findById(roomId: string): Promise<RoomRecord | null> {
-    const result = await this.db.query<RoomRow>(
-      `
-        select
-          r.id,
-          r.event_id,
-          r.title,
-          r.heat,
-          r.summary,
-          count(distinct c.user_id)::int as participants,
-          r.created_at
-        from rooms r
-        left join chats c on c.room_id = r.id and c.deleted_at is null
-        where r.id = $1
-        group by r.id
-      `,
-      [roomId],
-    )
+    const { data, error } = await this.db
+      .from('rooms')
+      .select(roomSelect)
+      .eq('id', roomId)
+      .maybeSingle<RoomRow>()
 
-    return result.rows[0] ? mapRoom(result.rows[0]) : null
+    throwIfSupabaseError(error)
+
+    return data ? this.mapRoom(data) : null
   }
 
   async updateAnalysis(roomId: string, input: { heat: number; summary: string }) {
-    const result = await this.db.query<RoomRow>(
-      `
-        update rooms
-        set heat = $2,
-            summary = $3
-        where id = $1
-        returning id, event_id, title, heat, summary, 0 as participants, created_at
-      `,
-      [roomId, input.heat, input.summary],
-    )
+    const { error } = await this.db
+      .from('rooms')
+      .update({
+        heat: input.heat,
+        summary: input.summary,
+      })
+      .eq('id', roomId)
 
-    return result.rows[0] ? mapRoom(result.rows[0]) : null
+    throwIfSupabaseError(error)
+
+    return this.findById(roomId)
   }
 
   async update(roomId: string, input: { title?: string; summary?: string }) {
@@ -98,38 +90,51 @@ export class RoomRepository {
       return null
     }
 
-    const result = await this.db.query<RoomRow>(
-      `
-        update rooms
-        set title = $2,
-            summary = $3
-        where id = $1
-        returning id, event_id, title, heat, summary, $4::int as participants, created_at
-      `,
-      [
-        roomId,
-        input.title ?? current.title,
-        input.summary ?? current.summary,
-        current.participants,
-      ],
-    )
+    const { error } = await this.db
+      .from('rooms')
+      .update({
+        title: input.title ?? current.title,
+        summary: input.summary ?? current.summary,
+      })
+      .eq('id', roomId)
 
-    return mapRoom(result.rows[0])
+    throwIfSupabaseError(error)
+
+    return this.findById(roomId)
   }
 
   async delete(roomId: string): Promise<boolean> {
-    const result = await this.db.query('delete from rooms where id = $1', [roomId])
+    const { data, error } = await this.db.from('rooms').delete().eq('id', roomId).select('id')
 
-    return (result.rowCount ?? 0) > 0
+    throwIfSupabaseError(error)
+
+    return (data ?? []).length > 0
+  }
+
+  private async mapRoom(row: RoomRow): Promise<RoomRecord> {
+    return {
+      roomId: row.id,
+      eventId: row.event_id,
+      title: row.title,
+      heat: row.heat,
+      summary: row.summary,
+      participants: await this.countParticipants(row.id),
+      createdAt: toIsoString(row.created_at),
+    }
+  }
+
+  private async countParticipants(roomId: string): Promise<number> {
+    const { data, error } = await this.db
+      .from('chats')
+      .select('user_id')
+      .eq('room_id', roomId)
+      .is('deleted_at', null)
+      .returns<ChatUserRow[]>()
+
+    throwIfSupabaseError(error)
+
+    return new Set((data ?? []).map((row) => row.user_id)).size
   }
 }
 
-const mapRoom = (row: RoomRow): RoomRecord => ({
-  roomId: row.id,
-  eventId: row.event_id,
-  title: row.title,
-  heat: row.heat,
-  summary: row.summary,
-  participants: Number(row.participants),
-  createdAt: row.created_at.toISOString(),
-})
+const roomSelect = 'id, event_id, title, heat, summary, created_at'
