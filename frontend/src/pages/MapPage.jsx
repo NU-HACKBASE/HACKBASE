@@ -1,12 +1,13 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { fetchEvents } from '../lib/eventApi'
 
 const DEFAULT_CENTER = { latitude: 35.681236, longitude: 139.767125 }
-const NEARBY_EVENT_RADIUS_METERS = 1000
+const NEARBY_EVENT_RADIUS_METERS = 200
 
 const INITIAL_LOCATION = {
   latitude: null,
@@ -101,13 +102,40 @@ function getGeolocationErrorMessage(error) {
   return '位置情報を取得できませんでした'
 }
 
+function calculateDistanceMeters(
+  fromLatitude,
+  fromLongitude,
+  toLatitude,
+  toLongitude,
+) {
+  const earthRadiusMeters = 6371000
+  const fromLatRad = toRadians(fromLatitude)
+  const toLatRad = toRadians(toLatitude)
+  const latitudeDelta = toRadians(toLatitude - fromLatitude)
+  const longitudeDelta = toRadians(toLongitude - fromLongitude)
+
+  const a =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(fromLatRad) *
+      Math.cos(toLatRad) *
+      Math.sin(longitudeDelta / 2) ** 2
+
+  return 2 * earthRadiusMeters * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function toRadians(degree) {
+  return (degree * Math.PI) / 180
+}
+
 export function MapPage() {
   const { isReady } = useCurrentUser()
+  const navigate = useNavigate()
   const mapElementRef = useRef(null)
   const mapRef = useRef(null)
   const markerRef = useRef(null)
   const nearbyCircleRef = useRef(null)
   const eventLayersRef = useRef([])
+  const currentPositionRef = useRef(null)
   const hasCenteredRef = useRef(false)
   const lastLookupRef = useRef({ key: '', at: 0 })
   const watchIdRef = useRef(null)
@@ -174,7 +202,7 @@ export function MapPage() {
     let hasReceivedPosition = false
     let latestEventRequestId = 0
 
-    const renderEvents = (events) => {
+    const renderEvents = (events, currentPosition) => {
       eventLayersRef.current.forEach((layer) => layer.remove())
 
       eventLayersRef.current = events.flatMap((event) => {
@@ -183,8 +211,19 @@ export function MapPage() {
         }
 
         const color = getEventColor(event.heat)
+        const isInsideEventZone =
+          currentPosition &&
+          calculateDistanceMeters(
+            currentPosition.latitude,
+            currentPosition.longitude,
+            event.latitude,
+            event.longitude,
+          ) <= event.radius
         const circle = L.circle([event.latitude, event.longitude], {
           radius: event.radius,
+          className: isInsideEventZone
+            ? 'event-zone event-zone--active'
+            : 'event-zone',
           color,
           weight: 2,
           fillColor: color,
@@ -195,9 +234,38 @@ export function MapPage() {
           icon: createEventIcon(event),
         })
           .bindPopup(
-            `<strong>${event.title}</strong><br>${event.address}<br>盛り上がり度: ${event.heat}<br>半径: ${event.radius}m`,
+            `
+              <div class="event-popup">
+                <strong>${event.title}</strong><br>
+                ${event.address}<br>
+                盛り上がり度: ${event.heat}<br>
+                半径: ${event.radius}m
+                <button
+                  class="event-popup__button"
+                  data-event-id="${event.id}"
+                  ${isInsideEventZone ? '' : 'disabled'}
+                  type="button"
+                >
+                  チャットルームへ
+                </button>
+              </div>
+            `,
           )
           .addTo(mapRef.current)
+
+        eventMarker.on('popupopen', (popupEvent) => {
+          const button = popupEvent.popup
+            ?.getElement()
+            ?.querySelector('[data-event-id]')
+
+          if (!button || !isInsideEventZone) {
+            return
+          }
+
+          button.addEventListener('click', () => {
+            navigate(`/${event.id}`)
+          }, { once: true })
+        })
 
         return [circle, eventMarker]
       })
@@ -217,7 +285,7 @@ export function MapPage() {
           return
         }
 
-        renderEvents(events)
+        renderEvents(events, { latitude, longitude })
       } catch (error) {
         console.error(error)
       }
@@ -248,6 +316,8 @@ export function MapPage() {
       const heading = position.coords.heading
       const lookupKey = `${latitude.toFixed(4)},${longitude.toFixed(4)}`
       const now = Date.now()
+
+      currentPositionRef.current = { latitude, longitude }
 
       markerRef.current?.setLatLng([latitude, longitude])
       nearbyCircleRef.current?.setLatLng([latitude, longitude])

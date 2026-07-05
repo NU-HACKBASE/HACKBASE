@@ -99,3 +99,47 @@ body {
   border-radius: 999px;
   background: rgba(17, 24, 39, 0.72);
 }
+
+.event-zone {
+  transition: fill-opacity 180ms ease, stroke-opacity 180ms ease;
+}
+
+.event-zone--active {
+  animation: event-zone-wave 1.8s ease-in-out infinite;
+}
+
+.event-popup {
+  min-width: 160px;
+}
+
+.event-popup__button {
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: #0f766e;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.event-popup__button:disabled {
+  background: #cbd5e1;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+@keyframes event-zone-wave {
+  0%,
+  100% {
+    fill-opacity: 0.18;
+    stroke-opacity: 0.58;
+  }
+
+  50% {
+    fill-opacity: 0.34;
+    stroke-opacity: 1;
+  }
+}
