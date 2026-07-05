@@ -10,6 +10,7 @@ React/Vite frontend and Hono/TypeScript backend foundation for hackathon-speed w
 - [API Guide](./docs/api-guide.md)
 - [WebSocket Guide](./docs/websocket.md)
 - [Environment Variables](./docs/environment.md)
+- [Supabase](./docs/supabase.md)
 - [Agent Guide](./docs/agent-guide.md)
 - [Next Steps](./docs/next-steps.md)
 
@@ -25,14 +26,15 @@ AI coding agents should also read [AGENTS.md](./AGENTS.md).
 │       ├── routes/        URL and method registration
 │       ├── handlers/      HTTP request/response conversion
 │       ├── services/      Business logic and use cases
-│       ├── repositories/  PostgreSQL/Redis access
+│       ├── repositories/  Supabase access
 │       ├── external/      AI and third-party service adapters
 │       ├── ws/            WebSocket handlers
-│       ├── db/            Database/cache clients
+│       ├── db/            Supabase client
 │       └── config/        Environment configuration
 ├── openapi/               OpenAPI first API contract
+├── supabase/              Supabase SQL migrations
 ├── docs/                  Development documentation
-├── docker-compose.yml     PostgreSQL and Redis for local development
+├── docker-compose.yml     App services
 ├── Makefile               Common development commands
 └── .env.example           Shared local environment template
 ```
@@ -49,7 +51,7 @@ External AI services should live under `backend/src/external` or as dedicated se
 
 ```bash
 make setup
-make dev-infra
+# Edit .env and set SUPABASE_URL / SUPABASE_* keys.
 make dev-backend
 make dev-frontend
 ```
@@ -71,15 +73,15 @@ Open:
 
 ```bash
 make install        # install frontend and backend dependencies
-make dev-infra     # start PostgreSQL and Redis
 make dev-backend   # start Hono backend
 make dev-frontend  # start Vite frontend
-make docker-up     # build and start frontend, backend, PostgreSQL, Redis
+make docker-up     # build and start frontend and backend
 make docker-build  # build Docker images
 make build         # build backend and frontend
 make lint          # backend typecheck and frontend eslint
 make test          # run backend unit tests
 make openapi-check # validate required OpenAPI shape
+make smoke-api     # run API smoke test against the running backend
 make down          # stop containers
 make clean         # stop containers and remove volumes
 ```
@@ -94,13 +96,13 @@ The backend serves the contract at `/openapi.json` and Swagger UI at `/docs`.
 
 The frontend and backend are separated so each can evolve independently. The backend keeps a simple layered architecture because it gives clear responsibility boundaries without introducing framework-heavy patterns.
 
-Compared with a single full-stack framework, this setup has a little more wiring, but it makes REST, WebSocket, PostgreSQL, Redis, and future AI services explicit. Compared with a large clean architecture template, this is faster to understand and easier to change during a hackathon.
+Compared with a single full-stack framework, this setup has a little more wiring, but it makes REST, WebSocket, Supabase, and future AI services explicit. Compared with a large clean architecture template, this is faster to understand and easier to change during a hackathon.
 
 ## Pros
 
 - Clear place to add new API endpoints
 - OpenAPI contract is visible from day one
-- PostgreSQL and Redis are available locally with health checks
+- Supabase is the primary database/auth platform
 - WebSocket support is included without affecting REST routes
 - AI and third-party services can be added without mixing them into route code
 - Minimal abstractions keep the code approachable
@@ -108,9 +110,9 @@ Compared with a single full-stack framework, this setup has a little more wiring
 ## Cons
 
 - OpenAPI and implementation are not yet automatically diffed
-- No migration tool is included yet
+- SQL migrations are tracked, but no migration runner is included yet
 - Backend service unit tests are available with Node's built-in test runner
-- Local Docker Compose runs infrastructure only, not the app processes
+- Supabase credentials must be prepared in `.env` before the backend can connect
 
 ## Library Choices
 
@@ -118,15 +120,15 @@ Compared with a single full-stack framework, this setup has a little more wiring
 - `@hono/node-server`: runs Hono on Node.js for local and container-friendly deployment
 - `@hono/node-ws`: adds WebSocket upgrade support for Node
 - `@hono/swagger-ui`: serves Swagger UI directly from the backend
-- `pg`: standard PostgreSQL client
-- `redis`: official Redis client
+- `@supabase/server`: server-side Supabase auth/client utilities
+- `@supabase/supabase-js`: Supabase client used by repositories
 - `yaml`: reads `openapi/openapi.yaml` and serves it as JSON
 - `tsx`: fast TypeScript execution in development
 - `tailwindcss` and `@tailwindcss/vite`: utility-first styling with minimal setup in Vite
 
 ## Next Additions
 
-- Add database migrations when the first table is introduced
+- Apply `supabase/migrations/001_initial_schema.sql` to Supabase
 - Add generated API client or contract tests once endpoints grow
-- Add repository integration tests with PostgreSQL
+- Add repository integration tests against Supabase
 - Add CI for `make lint`, `make build`, and `make openapi-check`

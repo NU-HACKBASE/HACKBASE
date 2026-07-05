@@ -1,4 +1,4 @@
-.PHONY: setup install dev dev-infra dev-backend dev-frontend docker-up docker-build build lint test openapi-check down logs clean
+.PHONY: setup install dev dev-backend dev-frontend docker-up docker-build build lint test openapi-check smoke-api down logs clean
 
 setup: install
 	cp -n .env.example .env || true
@@ -7,13 +7,10 @@ install:
 	npm --prefix backend install
 	npm --prefix frontend install
 
-dev: dev-infra
+dev:
 	@echo "Run these in separate terminals:"
 	@echo "  make dev-backend"
 	@echo "  make dev-frontend"
-
-dev-infra:
-	docker compose up -d postgres redis
 
 dev-backend:
 	npm --prefix backend run dev
@@ -40,6 +37,9 @@ test:
 
 openapi-check:
 	npm --prefix backend run openapi:check
+
+smoke-api:
+	npm --prefix backend run smoke:api
 
 down:
 	docker compose down

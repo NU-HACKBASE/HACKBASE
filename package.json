@@ -4,11 +4,11 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "make dev",
-    "dev:infra": "docker compose up -d postgres redis",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
     "build": "npm --prefix backend run build && npm --prefix frontend run build",
     "lint": "npm --prefix backend run lint && npm --prefix frontend run lint",
-    "openapi:check": "npm --prefix backend run openapi:check"
+    "openapi:check": "npm --prefix backend run openapi:check",
+    "smoke:api": "npm --prefix backend run smoke:api"
   }
 }

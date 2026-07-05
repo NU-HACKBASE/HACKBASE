@@ -1,8 +1,13 @@
 import { randomUUID } from 'node:crypto'
 
-import type pg from 'pg'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 import type { EventRecord } from '../types/api.js'
+import {
+  throwIfSupabaseError,
+  toIsoString,
+  toNullableIsoString,
+} from './supabase-utils.js'
 
 type EventRow = {
   id: string
@@ -12,14 +17,28 @@ type EventRow = {
   longitude: number | null
   radius: number
   manager_id: string | null
-  starts_at: Date | null
-  created_at: Date
-  heat: string | number
-  participants: string | number
+  starts_at: string | null
+  created_at: string
+}
+
+type ParticipantRow = {
+  user_id: string
+  joined_at: string
+}
+
+type UserRow = {
+  id: string
+  name: string
+  role: string
+}
+
+type ChatActivityRow = {
+  user_id: string
+  created_at: string
 }
 
 export class EventRepository {
-  constructor(private readonly db: pg.Pool) {}
+  constructor(private readonly db: SupabaseClient) {}
 
   async create(input: {
     title: string
@@ -31,78 +50,52 @@ export class EventRepository {
     startsAt?: string | null
   }): Promise<EventRecord> {
     const id = randomUUID()
-    const result = await this.db.query<EventRow>(
-      `
-        insert into events (id, title, address, latitude, longitude, radius, manager_id, starts_at)
-        values ($1, $2, $3, $4, $5, $6, $7, $8)
-        returning id, title, address, latitude, longitude, radius, manager_id, starts_at, created_at,
-          0 as heat,
-          0 as participants
-      `,
-      [
+    const { data, error } = await this.db
+      .from('events')
+      .insert({
         id,
-        input.title,
-        input.address ?? '',
-        input.latitude ?? null,
-        input.longitude ?? null,
-        input.radius ?? 0,
-        input.managerId,
-        input.startsAt ?? null,
-      ],
-    )
+        title: input.title,
+        address: input.address ?? '',
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
+        radius: input.radius ?? 0,
+        manager_id: input.managerId,
+        starts_at: input.startsAt ?? null,
+      })
+      .select(eventSelect)
+      .single<EventRow>()
 
-    return mapEvent(result.rows[0])
+    throwIfSupabaseError(error)
+
+    if (!data) {
+      throw new Error('Failed to create event')
+    }
+
+    return this.mapEventWithStats(data)
   }
 
   async list(): Promise<EventRecord[]> {
-    const result = await this.db.query<EventRow>(`
-      select
-        e.id,
-        e.title,
-        e.address,
-        e.latitude,
-        e.longitude,
-        e.radius,
-        e.manager_id,
-        e.starts_at,
-        e.created_at,
-        coalesce(avg(r.heat), 0)::int as heat,
-        count(distinct c.user_id)::int as participants
-      from events e
-      left join rooms r on r.event_id = e.id
-      left join chats c on c.event_id = e.id and c.deleted_at is null
-      group by e.id
-      order by e.created_at desc
-    `)
+    const { data, error } = await this.db
+      .from('events')
+      .select(eventSelect)
+      .order('created_at', { ascending: false })
+      .returns<EventRow[]>()
 
-    return result.rows.map(mapEvent)
+    throwIfSupabaseError(error)
+
+    return Promise.all((data ?? []).map((row) => this.mapEventWithStats(row)))
   }
 
   async findById(eventId: string): Promise<EventRecord | null> {
-    const result = await this.db.query<EventRow>(
-      `
-        select
-          e.id,
-          e.title,
-          e.address,
-          e.latitude,
-          e.longitude,
-          e.radius,
-          e.manager_id,
-          e.starts_at,
-          e.created_at,
-          coalesce(avg(r.heat), 0)::int as heat,
-          count(distinct c.user_id)::int as participants
-        from events e
-        left join rooms r on r.event_id = e.id
-        left join chats c on c.event_id = e.id and c.deleted_at is null
-        where e.id = $1
-        group by e.id
-      `,
-      [eventId],
-    )
+    const { data, error } = await this.db
+      .from('events')
+      .select(eventSelect)
+      .eq('id', eventId)
+      .maybeSingle<EventRow>()
 
-    return result.rows[0] ? mapEvent(result.rows[0]) : null
+    throwIfSupabaseError(error)
+
+    return data ? this.mapEventWithStats(data) : null
   }
 
   async update(
@@ -122,133 +115,211 @@ export class EventRepository {
       return null
     }
 
-    const result = await this.db.query<EventRow>(
-      `
-        update events
-        set title = $2,
-            address = $3,
-            latitude = $4,
-            longitude = $5,
-            radius = $6,
-            starts_at = $7
-        where id = $1
-        returning id, title, address, latitude, longitude, radius, manager_id, starts_at, created_at,
-          $8::int as heat,
-          $9::int as participants
-      `,
-      [
-        eventId,
-        input.title ?? current.title,
-        input.address ?? current.address,
-        input.latitude !== undefined ? input.latitude : current.latitude,
-        input.longitude !== undefined ? input.longitude : current.longitude,
-        input.radius ?? current.radius,
-        input.startsAt !== undefined ? input.startsAt : current.startsAt,
-        current.heat,
-        current.participants,
-      ],
-    )
+    const { data, error } = await this.db
+      .from('events')
+      .update({
+        title: input.title ?? current.title,
+        address: input.address ?? current.address,
+        latitude: input.latitude !== undefined ? input.latitude : current.latitude,
+        longitude: input.longitude !== undefined ? input.longitude : current.longitude,
+        radius: input.radius ?? current.radius,
+        starts_at: input.startsAt !== undefined ? input.startsAt : current.startsAt,
+      })
+      .eq('id', eventId)
+      .select(eventSelect)
+      .single<EventRow>()
 
-    return mapEvent(result.rows[0])
+    throwIfSupabaseError(error)
+
+    if (!data) {
+      throw new Error('Failed to update event')
+    }
+
+    return this.mapEventWithStats(data)
   }
 
   async delete(eventId: string): Promise<boolean> {
-    const result = await this.db.query('delete from events where id = $1', [eventId])
+    const { data, error } = await this.db.from('events').delete().eq('id', eventId).select('id')
 
-    return (result.rowCount ?? 0) > 0
+    throwIfSupabaseError(error)
+
+    return (data ?? []).length > 0
   }
 
   async join(input: { eventId: string; userId: string }) {
-    await this.db.query(
-      `
-        insert into participants (event_id, user_id)
-        values ($1, $2)
-        on conflict do nothing
-      `,
-      [input.eventId, input.userId],
+    const { error } = await this.db.from('participants').upsert(
+      {
+        event_id: input.eventId,
+        user_id: input.userId,
+      },
+      { onConflict: 'event_id,user_id', ignoreDuplicates: true },
     )
+
+    throwIfSupabaseError(error)
 
     return this.findParticipant(input)
   }
 
   async findParticipant(input: { eventId: string; userId: string }) {
-    const result = await this.db.query<{
-      id: string
-      name: string
-      role: string
-      joined_at: Date
-    }>(
-      `
-        select u.id, u.name, u.role, p.joined_at
-        from participants p
-        join users u on u.id = p.user_id
-        where p.event_id = $1 and p.user_id = $2
-      `,
-      [input.eventId, input.userId],
-    )
+    const { data: participant, error: participantError } = await this.db
+      .from('participants')
+      .select('user_id, joined_at')
+      .eq('event_id', input.eventId)
+      .eq('user_id', input.userId)
+      .maybeSingle<ParticipantRow>()
 
-    const row = result.rows[0]
+    throwIfSupabaseError(participantError)
 
-    return row
+    if (!participant) {
+      return null
+    }
+
+    const user = await this.findUser(participant.user_id)
+
+    return user
       ? {
-          userId: row.id,
-          userName: row.name,
-          role: row.role,
-          joinedAt: row.joined_at.toISOString(),
+          userId: user.id,
+          userName: user.name,
+          role: user.role,
+          joinedAt: toIsoString(participant.joined_at),
         }
       : null
   }
 
   async listParticipants(eventId: string) {
-    const result = await this.db.query<{
-      id: string
-      name: string
-      role: string
-      joined_at: Date
-      chat_count: string
-      last_active_at: Date | null
-    }>(
-      `
-        select
-          u.id,
-          u.name,
-          u.role,
-          p.joined_at,
-          count(c.id)::int as chat_count,
-          max(c.created_at) as last_active_at
-        from participants p
-        join users u on u.id = p.user_id
-        left join chats c on c.event_id = p.event_id
-          and c.user_id = p.user_id
-          and c.deleted_at is null
-        where p.event_id = $1
-        group by u.id, p.joined_at
-        order by p.joined_at desc
-      `,
-      [eventId],
-    )
+    const { data: participants, error: participantsError } = await this.db
+      .from('participants')
+      .select('user_id, joined_at')
+      .eq('event_id', eventId)
+      .order('joined_at', { ascending: false })
+      .returns<ParticipantRow[]>()
 
-    return result.rows.map((row) => ({
-      userId: row.id,
-      userName: row.name,
-      role: row.role,
-      joinedAt: row.joined_at.toISOString(),
-      chatCount: Number(row.chat_count),
-      lastActiveAt: row.last_active_at?.toISOString() ?? null,
-    }))
+    throwIfSupabaseError(participantsError)
+
+    const userIds = [...new Set((participants ?? []).map((row) => row.user_id))]
+    const users = await this.findUsers(userIds)
+    const activity = await this.findChatActivity(eventId, userIds)
+
+    return (participants ?? []).map((row) => {
+      const user = users.get(row.user_id)
+      const userActivity = activity.get(row.user_id)
+
+      return {
+        userId: row.user_id,
+        userName: user?.name ?? row.user_id,
+        role: user?.role ?? 'anonymous',
+        joinedAt: toIsoString(row.joined_at),
+        chatCount: userActivity?.chatCount ?? 0,
+        lastActiveAt: userActivity?.lastActiveAt ?? null,
+      }
+    })
+  }
+
+  private async mapEventWithStats(row: EventRow): Promise<EventRecord> {
+    const [heat, participants] = await Promise.all([
+      this.calculateEventHeat(row.id),
+      this.countParticipants(row.id),
+    ])
+
+    return {
+      eventId: row.id,
+      title: row.title,
+      address: row.address,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      radius: row.radius,
+      heat,
+      participants,
+      startsAt: toNullableIsoString(row.starts_at),
+      managerId: row.manager_id,
+      createdAt: toIsoString(row.created_at),
+    }
+  }
+
+  private async calculateEventHeat(eventId: string): Promise<number> {
+    const { data, error } = await this.db.from('rooms').select('heat').eq('event_id', eventId)
+
+    throwIfSupabaseError(error)
+
+    const heats = (data ?? []).map((row) => Number(row.heat) || 0)
+
+    if (heats.length === 0) {
+      return 0
+    }
+
+    return Math.round(heats.reduce((total, heat) => total + heat, 0) / heats.length)
+  }
+
+  private async countParticipants(eventId: string): Promise<number> {
+    const { count, error } = await this.db
+      .from('participants')
+      .select('event_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+
+    throwIfSupabaseError(error)
+
+    return count ?? 0
+  }
+
+  private async findUser(userId: string): Promise<UserRow | null> {
+    const { data, error } = await this.db
+      .from('users')
+      .select('id, name, role')
+      .eq('id', userId)
+      .maybeSingle<UserRow>()
+
+    throwIfSupabaseError(error)
+
+    return data
+  }
+
+  private async findUsers(userIds: string[]): Promise<Map<string, UserRow>> {
+    if (userIds.length === 0) {
+      return new Map()
+    }
+
+    const { data, error } = await this.db
+      .from('users')
+      .select('id, name, role')
+      .in('id', userIds)
+      .returns<UserRow[]>()
+
+    throwIfSupabaseError(error)
+
+    return new Map((data ?? []).map((row) => [row.id, row]))
+  }
+
+  private async findChatActivity(eventId: string, userIds: string[]) {
+    if (userIds.length === 0) {
+      return new Map<string, { chatCount: number; lastActiveAt: string | null }>()
+    }
+
+    const { data, error } = await this.db
+      .from('chats')
+      .select('user_id, created_at')
+      .eq('event_id', eventId)
+      .is('deleted_at', null)
+      .in('user_id', userIds)
+      .returns<ChatActivityRow[]>()
+
+    throwIfSupabaseError(error)
+
+    const activity = new Map<string, { chatCount: number; lastActiveAt: string | null }>()
+
+    for (const row of data ?? []) {
+      const current = activity.get(row.user_id) ?? { chatCount: 0, lastActiveAt: null }
+      const createdAt = toIsoString(row.created_at)
+
+      activity.set(row.user_id, {
+        chatCount: current.chatCount + 1,
+        lastActiveAt:
+          !current.lastActiveAt || createdAt > current.lastActiveAt ? createdAt : current.lastActiveAt,
+      })
+    }
+
+    return activity
   }
 }
 
-const mapEvent = (row: EventRow): EventRecord => ({
-  eventId: row.id,
-  title: row.title,
-  address: row.address,
-  latitude: row.latitude,
-  longitude: row.longitude,
-  radius: row.radius,
-  heat: Number(row.heat),
-  participants: Number(row.participants),
-  startsAt: row.starts_at?.toISOString() ?? null,
-  managerId: row.manager_id,
-  createdAt: row.created_at.toISOString(),
-})
+const eventSelect =
+  'id, title, address, latitude, longitude, radius, manager_id, starts_at, created_at'

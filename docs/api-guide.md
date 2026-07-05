@@ -9,7 +9,7 @@ REST API は OpenAPI First で追加します。
 3. `backend/src/routes` に route を追加する
 4. `backend/src/handlers` に handler を追加する
 5. `backend/src/services` に use case を追加する
-6. DB や Redis が必要なら `backend/src/repositories` に repository を追加する
+6. DB アクセスが必要なら `backend/src/repositories` に repository を追加する
 7. `backend/src/app.ts` に route を登録する
 8. `make lint` と `make build` を実行する
 
@@ -17,7 +17,7 @@ REST API は OpenAPI First で追加します。
 
 ### `GET /health`
 
-API、PostgreSQL、Redis の状態を返します。
+API と Supabase の状態を返します。
 
 ```bash
 curl http://localhost:8787/health
@@ -31,8 +31,7 @@ curl http://localhost:8787/health
   "timestamp": "2026-07-04T04:50:49.339Z",
   "services": {
     "api": "ok",
-    "database": "ok",
-    "cache": "ok"
+    "database": "ok"
   }
 }
 ```
@@ -50,7 +49,6 @@ Handler は HTTP の入口です。
 避けること:
 
 - SQL を書く
-- Redis を直接触る
 - 外部 API を直接呼ぶ
 - 複雑な業務ロジックを書く
 
@@ -71,8 +69,7 @@ Repository はデータアクセスを担当します。
 
 やること:
 
-- SQL を発行する
-- Redis に読み書きする
+- Supabase client でテーブルを操作する
 - DB の結果を service が扱いやすい形にする
 
 避けること:

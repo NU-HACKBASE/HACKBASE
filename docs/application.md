@@ -198,6 +198,6 @@ erDiagram
 - フロントエンド: JavaScript / React / Tailwind CSS
 - バックエンド: JavaScript ＋ フレームワーク（未定）
 - デプロイ先: Vercel or Netlify
-- DB / Redis: RDS, DynamoDB, Supabase のいずれか
+- DB: Supabase
 - LLM API: OpenRouter, Google AI Studio
 - OSS: OpenStreetMap など

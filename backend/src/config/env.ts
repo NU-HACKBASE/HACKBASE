@@ -7,8 +7,10 @@ export type AppEnv = {
   host: string
   port: number
   corsOrigin: string
-  databaseUrl: string
-  redisUrl: string
+  supabaseUrl: string
+  supabasePublishableKey: string
+  supabaseSecretKey: string
+  supabaseJwksUrl: string
   authSecret: string
   adminPassword: string
 }
@@ -27,18 +29,17 @@ export const readEnv = (
   return value
 }
 
-const appEnv = readEnv('APP_ENV', 'development')
+const appEnv = readEnv('APP_ENV')
 
 export const env: AppEnv = {
   appEnv,
-  host: readEnv('BACKEND_HOST', '0.0.0.0'),
-  port: Number(readEnv('BACKEND_PORT', '8787')),
-  corsOrigin: readEnv('CORS_ORIGIN', 'http://localhost:5173'),
-  databaseUrl: readEnv(
-    'DATABASE_URL',
-    'postgres://hackbase:hackbase@localhost:5432/hackbase',
-  ),
-  redisUrl: readEnv('REDIS_URL', 'redis://localhost:6379'),
+  host: readEnv('BACKEND_HOST'),
+  port: Number(readEnv('BACKEND_PORT')),
+  corsOrigin: readEnv('CORS_ORIGIN'),
+  supabaseUrl: readEnv('SUPABASE_URL'),
+  supabasePublishableKey: readEnv('SUPABASE_PUBLISHABLE_KEY'),
+  supabaseSecretKey: readEnv('SUPABASE_SECRET_KEY'),
+  supabaseJwksUrl: readEnv('SUPABASE_JWKS_URL'),
   authSecret: readEnv('AUTH_SECRET'),
   adminPassword: readEnv('ADMIN_PASSWORD'),
 }

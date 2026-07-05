@@ -9,6 +9,6 @@ Hono + TypeScript backend for HACKBASE.
 - `src/routes`: Route definitions
 - `src/handlers`: HTTP request/response adapters
 - `src/services`: Application use cases
-- `src/repositories`: Database/cache access
+- `src/repositories`: Supabase access
 - `src/external`: External service adapters such as AI APIs
 - `src/ws`: WebSocket handlers

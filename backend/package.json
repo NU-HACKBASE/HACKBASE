@@ -9,21 +9,21 @@
     "start": "node dist/server.js",
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx --test src/**/*.test.ts",
-    "openapi:check": "tsx src/scripts/check-openapi.ts"
+    "openapi:check": "node src/scripts/check-openapi.cjs",
+    "smoke:api": "tsx src/scripts/smoke-api.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.6",
     "@hono/node-ws": "^1.2.0",
     "@hono/swagger-ui": "^0.5.2",
+    "@supabase/server": "^1.3.0",
+    "@supabase/supabase-js": "^2.110.0",
     "dotenv": "^17.2.3",
     "hono": "^4.10.7",
-    "pg": "^8.16.3",
-    "redis": "^5.10.0",
     "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@types/node": "^25.0.2",
-    "@types/pg": "^8.16.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
