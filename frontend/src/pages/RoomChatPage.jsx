@@ -5,16 +5,56 @@ import { useCurrentUser } from '../hooks/useCurrentUser'
 import { createRoomChat, deleteChat, likeChat, updateChat } from '../lib/chatApi'
 import { fetchRoom } from '../lib/roomApi'
 
+const PRESENCE_TTL_MS = 8000
+
+function createSessionId() {
+  if (window.crypto?.randomUUID) {
+    return window.crypto.randomUUID()
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function readPresence(key) {
+  try {
+    return JSON.parse(window.localStorage.getItem(key) ?? '{}')
+  } catch {
+    return {}
+  }
+}
+
+function writePresence(key, presence) {
+  window.localStorage.setItem(key, JSON.stringify(presence))
+}
+
+function getActivePresence(key) {
+  const now = Date.now()
+  const presence = readPresence(key)
+
+  return Object.fromEntries(
+    Object.entries(presence).filter(([, lastSeenAt]) => now - lastSeenAt < PRESENCE_TTL_MS),
+  )
+}
+
+function getParticipantCount(key) {
+  return Math.max(1, Object.keys(getActivePresence(key)).length)
+}
+
 export function RoomChatPage() {
   const { eventId, roomId } = useParams()
   const { userId } = useCurrentUser()
   const eventPath = eventId ? `/${eventId}` : '/events'
+  const presenceKey = `room-presence:${eventId ?? 'default-event'}:${roomId ?? 'default-room'}`
   const bottomRef = useRef(null)
+  const [sessionId] = useState(createSessionId)
   const [room, setRoom] = useState(null)
   const [chats, setChats] = useState([])
   const [message, setMessage] = useState('')
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
+  const [participantCount, setParticipantCount] = useState(() =>
+    getParticipantCount(presenceKey),
+  )
   const [submitStatus, setSubmitStatus] = useState('idle')
   const [submitError, setSubmitError] = useState('')
   const [likingChatId, setLikingChatId] = useState(null)
@@ -58,6 +98,41 @@ export function RoomChatPage() {
       controller.abort()
     }
   }, [roomId])
+
+  // このルーム画面を開いているタブを現在参加中として扱う
+  useEffect(() => {
+    const touchPresence = () => {
+      const activePresence = getActivePresence(presenceKey)
+      activePresence[sessionId] = Date.now()
+      writePresence(presenceKey, activePresence)
+      setParticipantCount(getParticipantCount(presenceKey))
+    }
+
+    const removePresence = () => {
+      const activePresence = getActivePresence(presenceKey)
+      delete activePresence[sessionId]
+      writePresence(presenceKey, activePresence)
+    }
+
+    const handleStorage = (event) => {
+      if (event.key === presenceKey) {
+        setParticipantCount(getParticipantCount(presenceKey))
+      }
+    }
+
+    const initialTimerId = window.setTimeout(touchPresence, 0)
+    const heartbeatId = window.setInterval(touchPresence, 3000)
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('beforeunload', removePresence)
+
+    return () => {
+      window.clearTimeout(initialTimerId)
+      window.clearInterval(heartbeatId)
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('beforeunload', removePresence)
+      removePresence()
+    }
+  }, [presenceKey, sessionId])
 
   // 新しいチャットが追加されたら末尾へスクロールする
   useEffect(() => {
@@ -196,7 +271,7 @@ export function RoomChatPage() {
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-2 rounded-md bg-zinc-800/80 px-3 py-1.5 text-base text-white">
             <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
-            参加者: {room.participants}人
+            参加者: {participantCount}人
           </span>
           <button
             className="rounded-md bg-zinc-600/80 px-3 py-1.5 text-sm font-semibold text-zinc-100"
@@ -219,8 +294,8 @@ export function RoomChatPage() {
       <main
         className={
           chats.length === 0
-            ? 'flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-5 pb-28 pt-4'
-            : 'min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pb-28 pt-4'
+            ? 'flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-5 pb-44 pt-4'
+            : 'min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pb-44 pt-4'
         }
       >
         {chats.length === 0 ? (
@@ -337,7 +412,7 @@ export function RoomChatPage() {
       </main>
 
       <form
-        className="fixed bottom-0 left-1/2 z-50 w-full max-w-md -translate-x-1/2 shrink-0 border-t border-white/5 bg-[#171b21] px-4 py-4 shadow-2xl shadow-black/40"
+        className="fixed bottom-24 left-1/2 z-[1300] w-full max-w-md -translate-x-1/2 shrink-0 border border-white/10 bg-[#171b21] px-4 py-4 shadow-2xl shadow-black/40"
         onSubmit={handleSubmit}
       >
         {submitError ? (
