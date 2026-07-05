@@ -7,7 +7,7 @@ import { useCurrentUser } from '../hooks/useCurrentUser'
 import { fetchEvents } from '../lib/eventApi'
 
 const DEFAULT_CENTER = { latitude: 35.681236, longitude: 139.767125 }
-const NEARBY_EVENT_RADIUS_METERS = 2500
+const NEARBY_EVENT_RADIUS_METERS = 5000
 
 const INITIAL_LOCATION = {
   latitude: null,
