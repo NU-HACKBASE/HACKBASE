@@ -7,50 +7,66 @@ export function EventDetailPage() {
   const event = sampleEvents.find((item) => item.id === eventId) ?? sampleEvents[0]
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
-      <section className="rounded-md border border-stone-200 bg-white p-5">
-        <p className="text-sm font-medium text-teal-700">イベント</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-normal">{event.title}</h1>
-        <p className="mt-3 text-sm text-stone-600">{event.address}</p>
-        <dl className="mt-5 grid grid-cols-2 gap-4">
+    <div className="space-y-6">
+      {/* ヘッダーセクション */}
+      <section className="rounded-3xl bg-gradient-to-br from-teal-500 via-teal-600 to-teal-700 p-8 text-white shadow-lg">
+        <p className="text-sm font-semibold uppercase tracking-widest opacity-90">イベント詳細</p>
+        <h1 className="mt-3 text-4xl font-black tracking-tight">{event.title}</h1>
+        <p className="mt-4 text-lg opacity-90">{event.address}</p>
+        
+        <div className="mt-6 flex gap-6 pt-6 border-t border-white/20">
           <div>
-            <dt className="text-sm text-stone-500">盛り上がり</dt>
-            <dd className="mt-1 text-2xl font-semibold text-rose-700">{event.heat}</dd>
+            <p className="text-sm font-medium opacity-75">盛り上がり指数</p>
+            <p className="mt-1 text-3xl font-black">{event.heat}°</p>
           </div>
           <div>
-            <dt className="text-sm text-stone-500">参加</dt>
-            <dd className="mt-1 text-2xl font-semibold text-stone-950">
-              {event.participants}
-            </dd>
+            <p className="text-sm font-medium opacity-75">参加者数</p>
+            <p className="mt-1 text-3xl font-black">{event.participants}人</p>
           </div>
-        </dl>
+        </div>
       </section>
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold tracking-normal">ルーム</h2>
+      {/* ルームセクション */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-black tracking-tight">ルーム一覧</h2>
           <Link
-            className="rounded-md bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+            className="group relative inline-block px-8 py-3 font-bold text-teal-600 transition-all duration-300"
             to={`/${event.id}/${sampleRooms[0].id}`}
           >
-            参加
+            <span className="absolute inset-0 rounded-full bg-teal-600 transition-all duration-300 group-hover:scale-105"></span>
+            <span className="relative text-white">参加する</span>
           </Link>
         </div>
-        <div className="grid gap-3 md:grid-cols-3">
+        
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {sampleRooms.map((room) => (
             <Link
-              className="rounded-md border border-stone-200 bg-white p-4 hover:border-teal-500"
+              className="group relative overflow-hidden rounded-3xl transition-all duration-300"
               key={room.id}
               to={`/${event.id}/${room.id}`}
             >
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="font-semibold text-stone-950">{room.title}</h3>
-                <span className="rounded-md bg-rose-50 px-2 py-1 text-sm font-semibold text-rose-700">
-                  {room.heat}
-                </span>
+              {/* 背景グラデーション */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 group-hover:from-blue-100 group-hover:to-indigo-100 transition-all duration-300"></div>
+              <div className="absolute inset-0 border border-indigo-200 rounded-3xl group-hover:border-indigo-400 transition-all duration-300"></div>
+              <div className="absolute inset-0 shadow-md group-hover:shadow-xl rounded-3xl transition-all duration-300"></div>
+              
+              {/* コンテンツ */}
+              <div className="relative p-5 z-10">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <h3 className="flex-1 text-xl font-black text-indigo-900 group-hover:text-teal-600 transition-colors">{room.title}</h3>
+                  <span className="inline-block rounded-full bg-gradient-to-br from-rose-400 to-rose-500 px-4 py-2 text-sm font-bold text-white whitespace-nowrap">
+                    {room.heat}°
+                  </span>
+                </div>
+                
+                <p className="text-sm text-indigo-700 mb-4">{room.summary}</p>
+                
+                <div className="flex items-center justify-between pt-4 border-t border-indigo-200">
+                  <span className="text-sm font-bold text-indigo-600">👥 {room.participants}人</span>
+                  <span className="text-teal-600 font-bold text-lg group-hover:translate-x-1 transition-transform">→</span>
+                </div>
               </div>
-              <p className="mt-3 text-sm text-stone-600">{room.summary}</p>
-              <p className="mt-4 text-sm text-stone-600">参加 {room.participants}人</p>
             </Link>
           ))}
         </div>
