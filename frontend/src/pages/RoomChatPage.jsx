@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import useSWR from 'swr'
 
 import { useCurrentUser } from '../hooks/useCurrentUser'
-import {
-  mergeRealtimeChat,
-  removeRealtimeChat,
-  useRoomChatSocket,
-} from '../hooks/useRoomChatSocket'
 import { createRoomChat, deleteChat, likeChat, updateChat } from '../lib/chatApi'
 import { fetchRoom } from '../lib/roomApi'
 
 const PRESENCE_TTL_MS = 8000
+const CHAT_POLL_INTERVAL_MS = 3000
+const EMPTY_CHATS = []
 
 function createSessionId() {
   if (window.crypto?.randomUUID) {
@@ -52,11 +50,7 @@ export function RoomChatPage() {
   const presenceKey = `room-presence:${eventId ?? 'default-event'}:${roomId ?? 'default-room'}`
   const bottomRef = useRef(null)
   const [sessionId] = useState(createSessionId)
-  const [room, setRoom] = useState(null)
-  const [chats, setChats] = useState([])
   const [message, setMessage] = useState('')
-  const [status, setStatus] = useState('loading')
-  const [error, setError] = useState('')
   const [participantCount, setParticipantCount] = useState(() =>
     getParticipantCount(presenceKey),
   )
@@ -67,54 +61,16 @@ export function RoomChatPage() {
   const [editingBody, setEditingBody] = useState('')
   const [savingChatId, setSavingChatId] = useState(null)
   const [deletingChatId, setDeletingChatId] = useState(null)
-
-  // ルーム詳細と初期チャット一覧をAPIから読み込む
-  useEffect(() => {
-    const controller = new AbortController()
-
-    const loadRoom = async () => {
-      if (!roomId) {
-        setError('ルームが見つかりません。')
-        setStatus('error')
-        return
-      }
-
-      setStatus('loading')
-      setError('')
-
-      try {
-        const nextRoom = await fetchRoom(roomId, { signal: controller.signal })
-        setRoom(nextRoom)
-        setChats(nextRoom.chats)
-        setStatus('ready')
-      } catch (loadError) {
-        if (controller.signal.aborted) {
-          return
-        }
-
-        setError(loadError.message)
-        setStatus('error')
-      }
-    }
-
-    loadRoom()
-
-    return () => {
-      controller.abort()
-    }
-  }, [roomId])
-
-  const realtime = useRoomChatSocket(roomId, {
-    onChatCreated: (chat) => {
-      setChats((currentChats) => mergeRealtimeChat(currentChats, chat))
-    },
-    onChatUpdated: (chat) => {
-      setChats((currentChats) => mergeRealtimeChat(currentChats, chat))
-    },
-    onChatDeleted: (chatId) => {
-      setChats((currentChats) => removeRealtimeChat(currentChats, chatId))
-    },
+  const {
+    data: room,
+    error,
+    isLoading,
+    mutate,
+  } = useSWR(roomId ? ['room', roomId] : null, ([, nextRoomId]) => fetchRoom(nextRoomId), {
+    refreshInterval: CHAT_POLL_INTERVAL_MS,
+    revalidateOnFocus: true,
   })
+  const chats = room?.chats ?? EMPTY_CHATS
 
   // このルーム画面を開いているタブを現在参加中として扱う
   useEffect(() => {
@@ -173,7 +129,7 @@ export function RoomChatPage() {
     try {
       const chat = await createRoomChat(roomId, { body: trimmedMessage })
 
-      setChats((currentChats) => mergeRealtimeChat(currentChats, chat))
+      await mutate((currentRoom) => mergeRoomChat(currentRoom, chat), { revalidate: false })
       setMessage('')
       setSubmitStatus('idle')
     } catch (createError) {
@@ -190,7 +146,7 @@ export function RoomChatPage() {
     try {
       const likedChat = await likeChat(chatId)
 
-      setChats((currentChats) => mergeRealtimeChat(currentChats, likedChat))
+      await mutate((currentRoom) => mergeRoomChat(currentRoom, likedChat), { revalidate: false })
     } catch (likeError) {
       setSubmitError(likeError.message)
     } finally {
@@ -224,7 +180,7 @@ export function RoomChatPage() {
     try {
       const updatedChat = await updateChat(chatId, { body: trimmedBody })
 
-      setChats((currentChats) => mergeRealtimeChat(currentChats, updatedChat))
+      await mutate((currentRoom) => mergeRoomChat(currentRoom, updatedChat), { revalidate: false })
       cancelEditing()
     } catch (updateError) {
       setSubmitError(updateError.message)
@@ -240,7 +196,7 @@ export function RoomChatPage() {
 
     try {
       await deleteChat(chatId)
-      setChats((currentChats) => currentChats.filter((chat) => chat.id !== chatId))
+      await mutate((currentRoom) => removeRoomChat(currentRoom, chatId), { revalidate: false })
     } catch (deleteError) {
       setSubmitError(deleteError.message)
     } finally {
@@ -248,12 +204,12 @@ export function RoomChatPage() {
     }
   }
 
-  if (status === 'loading') {
+  if (isLoading) {
     return <StatusPanel>ルームを読み込み中です。</StatusPanel>
   }
 
-  if (status === 'error') {
-    return <StatusPanel tone="error">{error}</StatusPanel>
+  if (error) {
+    return <StatusPanel tone="error">{error.message}</StatusPanel>
   }
 
   if (!room) {
@@ -286,12 +242,6 @@ export function RoomChatPage() {
             <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
             参加者: {participantCount}人
           </span>
-          <span className="inline-flex items-center gap-2 rounded-md bg-zinc-800/80 px-3 py-1.5 text-sm text-zinc-200">
-            <span
-              className={`h-2 w-2 rounded-full ${getRealtimeStatusDotClass(realtime.status)}`}
-            />
-            {getRealtimeStatusLabel(realtime.status)}
-          </span>
           <button
             className="rounded-md bg-zinc-600/80 px-3 py-1.5 text-sm font-semibold text-zinc-100"
             type="button"
@@ -299,12 +249,6 @@ export function RoomChatPage() {
             話題の要約
           </button>
         </div>
-
-        {realtime.error ? (
-          <p className="mt-3 rounded-md border border-amber-500/30 bg-amber-950/50 px-3 py-2 text-sm text-amber-100">
-            {realtime.error}
-          </p>
-        ) : null}
 
         {room.summary ? (
           <div className="mt-4 rounded-md bg-red-900/55 px-3 py-2 text-sm leading-5 text-red-50">
@@ -490,37 +434,42 @@ function StatusPanel({ children, tone = 'default' }) {
   )
 }
 
-function getRealtimeStatusLabel(status) {
-  switch (status) {
-    case 'connected':
-      return 'リアルタイム接続中'
-    case 'connecting':
-    case 'subscribing':
-      return 'リアルタイム接続中...'
-    case 'reconnecting':
-      return '再接続中...'
-    case 'error':
-    case 'disconnected':
-      return 'リアルタイム未接続'
-    default:
-      return 'リアルタイム待機中'
+function mergeRoomChat(room, nextChat) {
+  if (!room) {
+    return room
+  }
+
+  return {
+    ...room,
+    chats: mergeChat(room.chats ?? [], nextChat),
   }
 }
 
-function getRealtimeStatusDotClass(status) {
-  switch (status) {
-    case 'connected':
-      return 'bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]'
-    case 'connecting':
-    case 'subscribing':
-    case 'reconnecting':
-      return 'bg-amber-300 shadow-[0_0_12px_rgba(252,211,77,0.7)]'
-    case 'error':
-    case 'disconnected':
-      return 'bg-rose-400 shadow-[0_0_12px_rgba(251,113,133,0.7)]'
-    default:
-      return 'bg-zinc-500'
+function removeRoomChat(room, chatId) {
+  if (!room) {
+    return room
   }
+
+  return {
+    ...room,
+    chats: (room.chats ?? []).filter((chat) => chat.id !== chatId),
+  }
+}
+
+function mergeChat(currentChats, nextChat) {
+  const chatId = nextChat?.id
+
+  if (!chatId) {
+    return currentChats
+  }
+
+  const exists = currentChats.some((chat) => chat.id === chatId)
+
+  if (!exists) {
+    return [...currentChats, nextChat]
+  }
+
+  return currentChats.map((chat) => (chat.id === chatId ? { ...chat, ...nextChat } : chat))
 }
 
 function formatDateTime(value) {
