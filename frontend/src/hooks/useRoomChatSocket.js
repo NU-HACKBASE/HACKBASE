@@ -1,12 +1,16 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { normalizeChat } from '../lib/chatApi'
 import { wsUrl } from '../lib/config'
 
 export function useRoomChatSocket(roomId, handlers = {}) {
   const handlersRef = useRef(handlers)
+  const [status, setStatus] = useState(() => (roomId ? 'connecting' : 'idle'))
+  const [error, setError] = useState('')
 
-  handlersRef.current = handlers
+  useEffect(() => {
+    handlersRef.current = handlers
+  }, [handlers])
 
   useEffect(() => {
     if (!roomId) {
@@ -23,10 +27,13 @@ export function useRoomChatSocket(roomId, handlers = {}) {
         return
       }
 
+      setStatus(reconnectAttempts > 0 ? 'reconnecting' : 'connecting')
+      setError('')
       socket = new WebSocket(wsUrl)
 
       socket.addEventListener('open', () => {
         reconnectAttempts = 0
+        setStatus('subscribing')
         socket.send(
           JSON.stringify({
             type: 'room.subscribe',
@@ -41,11 +48,20 @@ export function useRoomChatSocket(roomId, handlers = {}) {
           const currentHandlers = handlersRef.current
 
           switch (message.type) {
+            case 'room.subscribed':
+              if (message.payload?.roomId === roomId) {
+                setStatus('connected')
+              }
+              break
+            case 'error':
+              setStatus('error')
+              setError(message.payload?.message ?? 'WebSocket error')
+              break
             case 'chat.created':
-              currentHandlers.onChatCreated?.(normalizeChat(message.payload))
+              currentHandlers.onChatCreated?.(normalizeRealtimeChat(message.payload))
               break
             case 'chat.updated':
-              currentHandlers.onChatUpdated?.(normalizeChat(message.payload))
+              currentHandlers.onChatUpdated?.(normalizeRealtimeChat(message.payload))
               break
             case 'chat.deleted': {
               const chatId = message.payload?.chatId
@@ -66,11 +82,20 @@ export function useRoomChatSocket(roomId, handlers = {}) {
 
       socket.addEventListener('close', () => {
         if (closed || reconnectAttempts >= 5) {
+          if (!closed) {
+            setStatus('disconnected')
+          }
           return
         }
 
         reconnectAttempts += 1
+        setStatus('reconnecting')
         reconnectTimerId = window.setTimeout(connect, Math.min(1000 * reconnectAttempts, 5000))
+      })
+
+      socket.addEventListener('error', () => {
+        setStatus('error')
+        setError('WebSocket connection failed')
       })
     }
 
@@ -95,6 +120,18 @@ export function useRoomChatSocket(roomId, handlers = {}) {
       socket?.close()
     }
   }, [roomId])
+
+  return { error, status }
+}
+
+function normalizeRealtimeChat(payload) {
+  const chat = normalizeChat(payload)
+
+  if (!chat.id) {
+    throw new Error('Realtime chat payload did not include an id')
+  }
+
+  return chat
 }
 
 function upsertChat(currentChats, nextChat) {

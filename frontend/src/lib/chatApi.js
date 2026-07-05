@@ -67,7 +67,7 @@ export function normalizeChats(data) {
 }
 
 export function normalizeChat(data) {
-  const source = data?.chat ?? data
+  const source = data?.chat ?? data ?? {}
   const id = source.chatId ?? source.id
 
   return {

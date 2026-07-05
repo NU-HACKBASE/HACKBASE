@@ -15,6 +15,7 @@ type SmokeContext = {
 }
 
 const apiBaseUrl = process.env.SMOKE_API_BASE_URL ?? process.env.VITE_API_BASE_URL ?? 'http://localhost:8787'
+const skipAnalyze = process.env.SMOKE_SKIP_ANALYZE === '1'
 const runId = `smoke-${Date.now()}`
 const context: SmokeContext = {}
 
@@ -138,7 +139,7 @@ const main = async () => {
     assertArrayIncludesId(participants.participants, 'userId', context.userId, 'participants')
   })
 
-  await step('create, list, update, like, unlike, analyze, and delete chat', async () => {
+  await step(`create, list, update, like, unlike${skipAnalyze ? '' : ', analyze'}, and delete chat`, async () => {
     const created = await request<JsonObject>(`/api/v1/rooms/${context.roomId}/chats`, {
       method: 'POST',
       token: context.userToken,
@@ -172,12 +173,16 @@ const main = async () => {
     })
     assertEqual((unliked.chat as JsonObject).likedCount, 0, 'chat.likedCount')
 
-    const analyzed = await request<JsonObject>(`/api/v1/rooms/${context.roomId}/analyze`, {
-      method: 'POST',
-      token: context.adminToken,
-      expectedStatus: 200,
-    })
-    assertEqual((analyzed.room as JsonObject).roomId, context.roomId, 'analyzed room.roomId')
+    if (skipAnalyze) {
+      console.log('skipped analyze because SMOKE_SKIP_ANALYZE=1')
+    } else {
+      const analyzed = await request<JsonObject>(`/api/v1/rooms/${context.roomId}/analyze`, {
+        method: 'POST',
+        token: context.adminToken,
+        expectedStatus: 200,
+      })
+      assertEqual((analyzed.room as JsonObject).roomId, context.roomId, 'analyzed room.roomId')
+    }
 
     await request<void>(`/api/v1/chats/${context.chatId}`, {
       method: 'DELETE',

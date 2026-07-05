@@ -16,6 +16,11 @@ cp .env.example .env
 | `CORS_ORIGIN` | Backend | `http://localhost:5173` | Allowed frontend origin |
 | `AUTH_SECRET` | Backend | `change-me-in-production` | HMAC secret for current local auth tokens |
 | `ADMIN_PASSWORD` | Backend | `admin` | Local admin login password |
+| `GOOGLE_AI_API_KEY` | Backend | `AIza...` | Google AI Studio API key used for Gemma room analysis |
+| `GOOGLE_AI_MODEL` | Backend | `gemma-4-31b-it` | Google AI Studio model for heat and summary generation |
+| `GOOGLE_AI_API_BASE_URL` | Backend | `https://generativelanguage.googleapis.com/v1beta` | Gemini API REST base URL |
+| `ROOM_ANALYSIS_INTERVAL_MS` | Backend | `60000` | Interval for automatic room analysis scheduler |
+| `ROOM_ANALYSIS_BATCH_SIZE` | Backend | `5` | Maximum rooms analyzed per scheduler tick |
 | `SUPABASE_URL` | Backend | `https://<project-ref>.supabase.co` | Supabase project URL |
 | `SUPABASE_PUBLISHABLE_KEY` | Backend | `sb_publishable_...` | Supabase publishable key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Backend | `eyJ...service_role...` | Supabase service role key for server-side access |
@@ -32,6 +37,7 @@ cp .env.example .env
 - backend は `backend/src/config/env.ts` で読み込む
 - frontend は `frontend/src/lib/config.js` で読み込む
 - `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_SECRET_KEY` は backend のみに置き、frontend に公開しない
+- `GOOGLE_AI_API_KEY` は backend のみに置き、frontend に公開しない
 
 ## Supabase
 
@@ -46,6 +52,18 @@ SUPABASE_JWKS_URL=https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.jso
 SUPABASE_DB_URL=postgresql://postgres:<database-password>@db.<project-ref>.supabase.co:5432/postgres?sslmode=require
 ```
 
+## Google AI Studio
+
+ルーム分析では Google AI Studio の Gemini API 経由で Gemma 4 を呼び出します。API key を `.env` に設定すると、管理画面のルーム分析でチャット要約と盛り上がり度が生成されます。
+
+```env
+GOOGLE_AI_API_KEY=AIza...
+GOOGLE_AI_MODEL=gemma-4-31b-it
+GOOGLE_AI_API_BASE_URL=https://generativelanguage.googleapis.com/v1beta
+ROOM_ANALYSIS_INTERVAL_MS=60000
+ROOM_ANALYSIS_BATCH_SIZE=5
+```
+
 ## 本番環境で変えるもの
 
 - `APP_ENV`
@@ -58,6 +76,11 @@ SUPABASE_DB_URL=postgresql://postgres:<database-password>@db.<project-ref>.supab
 - `SUPABASE_DB_URL`
 - `AUTH_SECRET`
 - `ADMIN_PASSWORD`
+- `GOOGLE_AI_API_KEY`
+- `GOOGLE_AI_MODEL`
+- `GOOGLE_AI_API_BASE_URL`
+- `ROOM_ANALYSIS_INTERVAL_MS`
+- `ROOM_ANALYSIS_BATCH_SIZE`
 - `VITE_API_BASE_URL`
 - `VITE_WS_URL`
 

@@ -67,6 +67,18 @@ export class ChatRepository {
     return this.mapChats(data ?? []).then((chats) => chats.reverse())
   }
 
+  async countByRoomId(roomId: string): Promise<number> {
+    const { count, error } = await this.db
+      .from('chats')
+      .select('id', { count: 'exact', head: true })
+      .eq('room_id', roomId)
+      .is('deleted_at', null)
+
+    throwIfSupabaseError(error)
+
+    return count ?? 0
+  }
+
   async findById(chatId: string): Promise<ChatRecord | null> {
     const { data, error } = await this.db
       .from('chats')

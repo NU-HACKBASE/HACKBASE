@@ -1,3 +1,4 @@
+import type { AiService } from '../external/ai.service.js'
 import type { ChatRepository } from '../repositories/chat.repository.js'
 import type { EventRepository } from '../repositories/event.repository.js'
 import type { RoomRepository } from '../repositories/room.repository.js'
@@ -11,6 +12,7 @@ export class RoomService {
     private readonly roomRepository: RoomRepository,
     private readonly chatRepository: ChatRepository,
     private readonly authService: AuthService,
+    private readonly aiService: AiService,
   ) {}
 
   async createRoom(session: AuthSession, eventId: string, input: { title?: string; summary?: string }) {
@@ -77,24 +79,35 @@ export class RoomService {
 
   async analyzeRoom(session: AuthSession, roomId: string) {
     this.authService.requireAdmin(session)
+    return this.runRoomAnalysis(roomId)
+  }
+
+  async runRoomAnalysis(roomId: string) {
     const room = await this.roomRepository.findById(roomId)
 
     if (!room) {
       throw new ApiError(404, 'ROOM_NOT_FOUND', 'Room not found')
     }
 
-    const chats = await this.chatRepository.listByRoomId(roomId, 50)
-    const likedCount = chats.reduce((total, chat) => total + chat.likedCount, 0)
-    const heat = Math.min(100, chats.length * 8 + likedCount * 4)
-    const latestBodies = chats
-      .slice(-5)
-      .map((chat) => chat.body)
-      .filter(Boolean)
-    const summary =
-      latestBodies.length > 0
-        ? `最近の話題: ${latestBodies.join(' / ')}`
-        : 'まだチャットがありません。'
-    const updatedRoom = await this.roomRepository.updateAnalysis(roomId, { heat, summary })
+    const [chats, chatCount] = await Promise.all([
+      this.chatRepository.listByRoomId(roomId, 50),
+      this.chatRepository.countByRoomId(roomId),
+    ])
+    const analysis = await this.aiService.analyzeRoom({
+      roomTitle: room.title,
+      chats: chats.map((chat) => ({
+        userName: chat.userName,
+        body: chat.body,
+        likedCount: chat.likedCount,
+        createdAt: chat.createdAt,
+      })),
+    })
+    const { heat, summary, trends } = analysis
+    const updatedRoom = await this.roomRepository.updateAnalysis(roomId, {
+      heat,
+      summary,
+      analyzedChatCount: chatCount,
+    })
 
     if (!updatedRoom) {
       throw new ApiError(404, 'ROOM_NOT_FOUND', 'Room not found')
@@ -105,8 +118,35 @@ export class RoomService {
       analysis: {
         heat,
         summary,
-        trends: latestBodies.slice(-3),
+        trends,
       },
+    }
+  }
+
+  async runDueRoomAnalyses(options: { cutoffIso: string; limit: number }) {
+    const rooms = await this.roomRepository.listAnalysisDueRooms(options.cutoffIso, options.limit)
+    let analyzedCount = 0
+
+    for (const room of rooms) {
+      const claimed = await this.roomRepository.markAnalysisProcessing(room.roomId)
+
+      if (!claimed) {
+        continue
+      }
+
+      try {
+        await this.runRoomAnalysis(room.roomId)
+        analyzedCount += 1
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown room analysis error'
+        await this.roomRepository.markAnalysisFailed(room.roomId, message)
+        console.error(`Room analysis failed for ${room.roomId}: ${message}`)
+      }
+    }
+
+    return {
+      checked: rooms.length,
+      analyzed: analyzedCount,
     }
   }
 
