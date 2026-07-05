@@ -10,7 +10,8 @@ HACKBASE の開発ドキュメントです。
 4. [WebSocket Guide](./websocket.md)
 5. [Environment Variables](./environment.md)
 6. [Supabase](./supabase.md)
-7. [Agent Guide](./agent-guide.md)
+7. [Fly.io Deploy](./deploy-fly.md)
+8. [Agent Guide](./agent-guide.md)
 
 ## ドキュメント方針
 
