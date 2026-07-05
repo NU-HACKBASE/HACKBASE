@@ -9,7 +9,7 @@
     "start": "node dist/server.js",
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx --test src/**/*.test.ts",
-    "openapi:check": "tsx src/scripts/check-openapi.ts",
+    "openapi:check": "node src/scripts/check-openapi.cjs",
     "smoke:api": "tsx src/scripts/smoke-api.ts"
   },
   "dependencies": {
