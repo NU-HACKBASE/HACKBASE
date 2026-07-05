@@ -6,6 +6,7 @@ import { useCurrentUser } from '../hooks/useCurrentUser'
 import { fetchEvents } from '../lib/eventApi'
 
 const DEFAULT_CENTER = { latitude: 35.681236, longitude: 139.767125 }
+const NEARBY_EVENT_RADIUS_METERS = 1000
 
 const INITIAL_LOCATION = {
   latitude: null,
@@ -105,6 +106,7 @@ export function MapPage() {
   const mapElementRef = useRef(null)
   const mapRef = useRef(null)
   const markerRef = useRef(null)
+  const nearbyCircleRef = useRef(null)
   const eventLayersRef = useRef([])
   const hasCenteredRef = useRef(false)
   const lastLookupRef = useRef({ key: '', at: 0 })
@@ -135,14 +137,27 @@ export function MapPage() {
       },
     ).addTo(map)
 
+    const nearbyCircle = L.circle(
+      [DEFAULT_CENTER.latitude, DEFAULT_CENTER.longitude],
+      {
+        radius: NEARBY_EVENT_RADIUS_METERS,
+        color: 'rgba(255, 255, 255, 0.82)',
+        weight: 1.5,
+        fillColor: 'rgba(255, 255, 255, 0.5)',
+        fillOpacity: 0.58,
+      },
+    ).addTo(map)
+
     mapRef.current = map
     markerRef.current = marker
+    nearbyCircleRef.current = nearbyCircle
 
     return () => {
       eventLayersRef.current.forEach((layer) => layer.remove())
       map.remove()
       mapRef.current = null
       markerRef.current = null
+      nearbyCircleRef.current = null
       eventLayersRef.current = []
     }
   }, [isReady])
@@ -240,6 +255,7 @@ export function MapPage() {
       const now = Date.now()
 
       markerRef.current?.setLatLng([latitude, longitude])
+      nearbyCircleRef.current?.setLatLng([latitude, longitude])
       updateArrowHeading(heading)
 
       if (!hasCenteredRef.current) {
