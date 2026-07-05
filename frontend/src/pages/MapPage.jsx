@@ -439,7 +439,7 @@ export function MapPage() {
         navigator.geolocation.clearWatch(watchIdRef.current)
       }
     }
-  }, [])
+  }, [isReady, navigate])
 
   const handleRecenter = () => {
     const currentPosition = currentPositionRef.current
