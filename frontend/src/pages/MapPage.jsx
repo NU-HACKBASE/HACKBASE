@@ -28,14 +28,13 @@ function getInitialLocation() {
       placeName: '位置情報を使えないブラウザです',
     }
   }
-
   return INITIAL_LOCATION
 }
 
 function createArrowIcon() {
   return L.divIcon({
     className: '',
-    html: '<div class="arrow-marker"></div>',
+    html: '<div class="arrow-marker" style="width: 20px; height: 20px; background-color: #06b6d4; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>',
     iconSize: [24, 28],
     iconAnchor: [12, 20],
   })
@@ -74,15 +73,12 @@ async function reverseGeocode(latitude, longitude) {
   url.searchParams.set('accept-language', 'ja')
 
   const response = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-    },
+    headers: { Accept: 'application/json' },
   })
 
   if (!response.ok) {
     throw new Error(`Reverse geocoding failed: ${response.status}`)
   }
-
   return response.json()
 }
 
@@ -142,8 +138,9 @@ export function MapPage() {
 
   const [locationInfo, setLocationInfo] = useState(getInitialLocation)
 
+  // 地図の初期化処理
   useEffect(() => {
-    if (!isReady || !mapElementRef.current || mapRef.current) {
+    if (!mapElementRef.current || mapRef.current) {
       return undefined
     }
 
@@ -187,8 +184,9 @@ export function MapPage() {
       nearbyCircleRef.current = null
       eventLayersRef.current = []
     }
-  }, [isReady])
+  }, [])
 
+  // 位置情報の追跡処理
   useEffect(() => {
     if (
       !isReady ||
@@ -350,10 +348,7 @@ export function MapPage() {
 
       try {
         const result = await reverseGeocode(latitude, longitude)
-
-        if (cancelled) {
-          return
-        }
+        if (cancelled) return
 
         lastLookupRef.current = { key: lookupKey, at: now }
         setLocationInfo({
@@ -432,34 +427,36 @@ export function MapPage() {
 
     return () => {
       cancelled = true
-
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current)
       }
     }
-  }, [isReady])
-
-  if (!isReady) {
-    return null
-  }
+  }, [])
 
   return (
-    <div className="current-location-map">
-      <div className="current-location-map__canvas" ref={mapElementRef} />
-      <aside className="info-panel">
-        <h1 className="info-title">Current Location</h1>
-        <p className="info-row">
-          <span className="info-label">緯度</span>
-          <span>{formatCoordinate(locationInfo.latitude)}</span>
-        </p>
-        <p className="info-row">
-          <span className="info-label">経度</span>
-          <span>{formatCoordinate(locationInfo.longitude)}</span>
-        </p>
-        <p className="info-row">
-          <span className="info-label">地名</span>
-          <span>{locationInfo.placeName}</span>
-        </p>
+    <div className="current-location-map w-full h-screen relative">
+      <div 
+        className="current-location-map__canvas w-full h-full" 
+        ref={mapElementRef} 
+        style={{ background: '#e5e7eb' }} 
+      />
+      
+      <aside className="info-panel absolute bottom-6 left-6 right-6 z-[1000] bg-white/95 backdrop-blur-md p-5 rounded-2xl shadow-2xl border border-stone-200/50">
+        <h1 className="info-title font-black text-xl mb-3 text-stone-800 tracking-tight">Current Location</h1>
+        <div className="space-y-2">
+          <p className="info-row flex justify-between text-sm text-stone-600">
+            <span className="info-label font-bold text-stone-400">緯度</span>
+            <span className="font-mono bg-stone-100 px-2 py-0.5 rounded">{formatCoordinate(locationInfo.latitude)}</span>
+          </p>
+          <p className="info-row flex justify-between text-sm text-stone-600">
+            <span className="info-label font-bold text-stone-400">経度</span>
+            <span className="font-mono bg-stone-100 px-2 py-0.5 rounded">{formatCoordinate(locationInfo.longitude)}</span>
+          </p>
+          <div className="pt-2 border-t border-stone-100 flex justify-between items-start text-sm text-stone-600">
+            <span className="info-label font-bold text-stone-400 mt-0.5">地名</span>
+            <span className="font-bold text-teal-600 text-right max-w-[70%] break-words">{locationInfo.placeName}</span>
+          </div>
+        </div>
       </aside>
     </div>
   )
