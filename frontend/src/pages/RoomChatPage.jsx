@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 const PRESENCE_TTL_MS = 8000
 const MAX_STORED_MESSAGES = 100
 
+// この画面を開いているタブごとに一意なIDを作る
 function createSessionId() {
   if (window.crypto?.randomUUID) {
     return window.crypto.randomUUID()
@@ -12,6 +13,7 @@ function createSessionId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
+// localStorageからJSONを安全に読み込む
 function readJson(key, fallbackValue) {
   try {
     return JSON.parse(window.localStorage.getItem(key) ?? JSON.stringify(fallbackValue))
@@ -20,10 +22,12 @@ function readJson(key, fallbackValue) {
   }
 }
 
+// localStorageへJSONとして保存する
 function writeJson(key, value) {
   window.localStorage.setItem(key, JSON.stringify(value))
 }
 
+// 一定時間内に更新された参加者だけを有効な参加者として扱う
 function getActivePresence(key) {
   const now = Date.now()
   const presence = readJson(key, {})
@@ -33,16 +37,19 @@ function getActivePresence(key) {
   )
 }
 
+// 有効な参加者数を数える。自分だけの状態でも最低1人と表示する
 function getParticipantCount(key) {
   return Math.max(1, Object.keys(getActivePresence(key)).length)
 }
 
+// ルームに保存されているメッセージ一覧を取得する
 function readMessages(key) {
   const messages = readJson(key, [])
 
   return Array.isArray(messages) ? messages : []
 }
 
+// 保存件数が増えすぎないように最新のメッセージだけを残す
 function saveMessages(key, messages) {
   writeJson(key, messages.slice(-MAX_STORED_MESSAGES))
 }
@@ -61,6 +68,7 @@ export function RoomChatPage() {
     getParticipantCount(presenceKey),
   )
 
+  // ルームが変わったときに、そのルームの保存済みメッセージを読み込む
   useEffect(() => {
     const timerId = window.setTimeout(() => {
       setMessages(readMessages(messagesKey))
@@ -69,6 +77,7 @@ export function RoomChatPage() {
     return () => window.clearTimeout(timerId)
   }, [messagesKey])
 
+  // ページ参加状態を定期更新し、別タブからの参加者数・メッセージ更新を同期する
   useEffect(() => {
     const touchPresence = () => {
       const activePresence = getActivePresence(presenceKey)
@@ -107,10 +116,12 @@ export function RoomChatPage() {
     }
   }, [messagesKey, presenceKey, sessionId])
 
+  // 新しいメッセージが追加されたら末尾へスクロールする
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // 入力されたメッセージを保存し、同じルームを開いている別タブにも同期する
   const handleSubmit = (event) => {
     event.preventDefault()
 
@@ -137,8 +148,8 @@ export function RoomChatPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-9rem)] max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-[#171b21] text-white shadow-2xl shadow-black/40 md:min-h-[780px]">
-      <header className="border-b border-white/5 bg-[#171b21]/95 px-5 pb-3 pt-5">
+    <div className="mx-auto flex h-[calc(100vh-9rem)] max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-[#171b21] text-white shadow-2xl shadow-black/40 md:h-[780px]">
+      <header className="sticky top-0 z-20 border-b border-white/5 bg-[#171b21]/95 px-5 pb-3 pt-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <Link
@@ -153,13 +164,6 @@ export function RoomChatPage() {
             </h1>
             <p className="mt-1 text-sm text-zinc-400">匿名ではなく表示中</p>
           </div>
-          <button
-            aria-label="匿名モードを切り替え"
-            className="mt-9 flex h-6 w-11 shrink-0 items-center rounded-full bg-zinc-600 p-1"
-            type="button"
-          >
-            <span className="ml-auto h-4 w-4 rounded-full bg-zinc-300" />
-          </button>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -186,8 +190,8 @@ export function RoomChatPage() {
       <main
         className={
           messages.length === 0
-            ? 'flex flex-1 items-center justify-center overflow-y-auto px-5 py-4'
-            : 'flex-1 space-y-4 overflow-y-auto px-5 py-4'
+            ? 'flex flex-1 min-h-0 items-center justify-center overflow-y-auto px-5 pb-28 pt-4'
+            : 'flex-1 min-h-0 space-y-4 overflow-y-auto px-5 pb-28 pt-4'
         }
       >
         {messages.length === 0 ? (
@@ -242,7 +246,10 @@ export function RoomChatPage() {
         <div ref={bottomRef} />
       </main>
 
-      <form className="border-t border-white/5 bg-[#171b21] px-4 py-4" onSubmit={handleSubmit}>
+      <form
+        className="fixed bottom-0 left-1/2 z-50 w-full max-w-md -translate-x-1/2 shrink-0 border-t border-white/5 bg-[#171b21] px-4 py-4 shadow-2xl shadow-black/40"
+        onSubmit={handleSubmit}
+      >
         <div className="flex h-12 items-center gap-2 rounded-xl border border-zinc-700 bg-[#11151a] p-1.5 shadow-inner shadow-black/40">
           <button
             aria-label="添付を追加"
