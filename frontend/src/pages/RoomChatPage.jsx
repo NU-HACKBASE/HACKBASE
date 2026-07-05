@@ -104,7 +104,7 @@ export function RoomChatPage() {
     }
   }, [roomId])
 
-  useRoomChatSocket(roomId, {
+  const realtime = useRoomChatSocket(roomId, {
     onChatCreated: (chat) => {
       setChats((currentChats) => mergeRealtimeChat(currentChats, chat))
     },
@@ -286,6 +286,12 @@ export function RoomChatPage() {
             <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
             参加者: {participantCount}人
           </span>
+          <span className="inline-flex items-center gap-2 rounded-md bg-zinc-800/80 px-3 py-1.5 text-sm text-zinc-200">
+            <span
+              className={`h-2 w-2 rounded-full ${getRealtimeStatusDotClass(realtime.status)}`}
+            />
+            {getRealtimeStatusLabel(realtime.status)}
+          </span>
           <button
             className="rounded-md bg-zinc-600/80 px-3 py-1.5 text-sm font-semibold text-zinc-100"
             type="button"
@@ -293,6 +299,12 @@ export function RoomChatPage() {
             話題の要約
           </button>
         </div>
+
+        {realtime.error ? (
+          <p className="mt-3 rounded-md border border-amber-500/30 bg-amber-950/50 px-3 py-2 text-sm text-amber-100">
+            {realtime.error}
+          </p>
+        ) : null}
 
         {room.summary ? (
           <div className="mt-4 rounded-md bg-red-900/55 px-3 py-2 text-sm leading-5 text-red-50">
@@ -476,6 +488,39 @@ function StatusPanel({ children, tone = 'default' }) {
       {children}
     </p>
   )
+}
+
+function getRealtimeStatusLabel(status) {
+  switch (status) {
+    case 'connected':
+      return 'リアルタイム接続中'
+    case 'connecting':
+    case 'subscribing':
+      return 'リアルタイム接続中...'
+    case 'reconnecting':
+      return '再接続中...'
+    case 'error':
+    case 'disconnected':
+      return 'リアルタイム未接続'
+    default:
+      return 'リアルタイム待機中'
+  }
+}
+
+function getRealtimeStatusDotClass(status) {
+  switch (status) {
+    case 'connected':
+      return 'bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]'
+    case 'connecting':
+    case 'subscribing':
+    case 'reconnecting':
+      return 'bg-amber-300 shadow-[0_0_12px_rgba(252,211,77,0.7)]'
+    case 'error':
+    case 'disconnected':
+      return 'bg-rose-400 shadow-[0_0_12px_rgba(251,113,133,0.7)]'
+    default:
+      return 'bg-zinc-500'
+  }
 }
 
 function formatDateTime(value) {

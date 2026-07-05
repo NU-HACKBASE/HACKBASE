@@ -34,7 +34,7 @@ function getInitialLocation() {
 function createArrowIcon() {
   return L.divIcon({
     className: '',
-    html: '<div class="arrow-marker" style="width: 20px; height: 20px; background-color: #06b6d4; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>',
+    html: '<div class="arrow-marker" style="width: 20px height: 20px background-color: #06b6d4 border-radius: 50% border: 3px solid white box-shadow: 0 0 10px rgba(0,0,0,0.5)"></div>',
     iconSize: [24, 28],
     iconAnchor: [12, 20],
   })
@@ -57,7 +57,7 @@ function createEventIcon(event) {
 
   return L.divIcon({
     className: '',
-    html: `<div class="event-pin" style="--event-color: ${color}"><span></span></div>`,
+    html: `<div class='event-pin' style='--event-color: ${color}'><span></span></div>`,
     iconSize: [42, 52],
     iconAnchor: [21, 48],
     popupAnchor: [0, -42],
@@ -150,7 +150,7 @@ export function MapPage() {
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors',
+      attribution: '&copy OpenStreetMap contributors',
     }).addTo(map)
 
     const marker = L.marker(
@@ -167,7 +167,7 @@ export function MapPage() {
         color: 'rgba(255, 255, 255, 0.82)',
         weight: 1.5,
         fillColor: 'rgba(255, 255, 255, 0.82)',
-        fillOpacity: 0.50,
+        fillOpacity: 0.5,
       },
     ).addTo(map)
 
@@ -203,7 +203,10 @@ export function MapPage() {
       eventLayersRef.current.forEach((layer) => layer.remove())
 
       eventLayersRef.current = events.flatMap((event) => {
-        if (!Number.isFinite(event.latitude) || !Number.isFinite(event.longitude)) {
+        if (
+          !Number.isFinite(event.latitude) ||
+          !Number.isFinite(event.longitude)
+        ) {
           return []
         }
 
@@ -232,16 +235,16 @@ export function MapPage() {
         })
           .bindPopup(
             `
-              <div class="event-popup">
+              <div class='event-popup'>
                 <strong>${event.title}</strong><br>
                 ${event.address}<br>
                 盛り上がり度: ${event.heat}<br>
                 半径: ${event.radius}m
                 <button
-                  class="event-popup__button"
-                  data-event-id="${event.id}"
+                  class='event-popup__button'
+                  data-event-id='${event.id}'
                   ${isInsideEventZone ? '' : 'disabled'}
-                  type="button"
+                  type='button'
                 >
                   チャットルームへ
                 </button>
@@ -259,9 +262,13 @@ export function MapPage() {
             return
           }
 
-          button.addEventListener('click', () => {
-            navigate(`/${event.id}`)
-          }, { once: true })
+          button.addEventListener(
+            'click',
+            () => {
+              navigate(`/${event.id}`)
+            },
+            { once: true },
+          )
         })
 
         return [circle, eventMarker]
@@ -459,35 +466,39 @@ export function MapPage() {
   }
 
   return (
-    <div className="current-location-map">
-      <div className="current-location-map__canvas" ref={mapElementRef} />
-      <aside className="info-panel">
-        <h1 className="info-title">Current Location</h1>
-        <p className="info-place">{locationInfo.placeName}</p>
-        <div className="nearby-events">
+    <div className='current-location-map'>
+      <div className='current-location-map__canvas' ref={mapElementRef} />
+      <aside className='info-panel'>
+        <h1 className='info-title'>Current Location</h1>
+        <p className='info-place'>{locationInfo.placeName}</p>
+        <div className='nearby-events'>
           <button
             aria-expanded={isEventsOpen}
-            className="nearby-events__toggle"
+            className='nearby-events__toggle'
             onClick={() => setIsEventsOpen((current) => !current)}
-            type="button"
+            type='button'
           >
-            <span className="nearby-events__title">近くのイベント</span>
-            <span className="nearby-events__summary">{nearbyEvents.length}件</span>
+            <span className='nearby-events__title'>近くのイベント</span>
+            <span className='nearby-events__summary'>
+              {nearbyEvents.length}件
+            </span>
           </button>
           {isEventsOpen ? (
             nearbyEvents.length === 0 ? (
-              <p className="nearby-events__empty">近くにイベントはありません</p>
+              <p className='nearby-events__empty'>近くにイベントはありません</p>
             ) : (
-              <ul className="nearby-events__list">
+              <ul className='nearby-events__list'>
                 {nearbyEvents.slice(0, 4).map((event) => (
-                  <li className="nearby-events__item" key={event.id}>
+                  <li className='nearby-events__item' key={event.id}>
                     <button
-                      className="nearby-events__button"
+                      className='nearby-events__button'
                       onClick={() => navigate(`/${event.id}`)}
-                      type="button"
+                      type='button'
                     >
-                      <span className="nearby-events__name">{event.title}</span>
-                      <span className="nearby-events__meta">{event.address}</span>
+                      <span className='nearby-events__name'>{event.title}</span>
+                      <span className='nearby-events__meta'>
+                        {event.address}
+                      </span>
                     </button>
                   </li>
                 ))}
@@ -497,13 +508,13 @@ export function MapPage() {
         </div>
       </aside>
       <button
-        aria-label="現在地を中央に戻す"
-        className="recenter-button"
+        aria-label='現在地を中央に戻す'
+        className='recenter-button'
         onClick={handleRecenter}
-        type="button"
+        type='button'
       >
-        <span className="recenter-button__icon" aria-hidden="true">
-          <span className="recenter-button__pin" />
+        <span className='recenter-button__icon' aria-hidden='true'>
+          <span className='recenter-button__pin' />
         </span>
       </button>
     </div>
